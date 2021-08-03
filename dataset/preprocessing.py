@@ -104,7 +104,7 @@ class DataPreprocessing():
         #  TODO: if immput is 190X400 will this distortion affect result?
         
         if self.ScaleLimitSize:
-            scale_ratio = (self.crop_size[0]+1) / min(H, W) / self.min_scale_factor
+            scale_ratio = (self.crop_size[0]+1) / min(H, W)
             if scale_ratio > 1.0:
                 Hs, Ws = int(H*scale_ratio), int(W*scale_ratio)
                 image = cv2.resize(image, (Ws,Hs), interpolation=self.resize_method)
@@ -151,6 +151,7 @@ class DataPreprocessing():
 
         if self.RandScale:
             scale = get_random_scale(self.min_scale_factor, self.max_scale_factor, self.step_size)
+            print(scale)
             Hs, Ws = int(scale*Hs), int(scale*Ws)
             image = cv2.resize(image, (Ws,Hs), interpolation=self.resize_method)
             if label is not None:

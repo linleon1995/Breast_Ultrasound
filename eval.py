@@ -14,55 +14,22 @@ import numpy as np
 from utils import train_utils
 from cfg import dataset_config
 import os
-PROJECT_PATH = "C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\"
-DATAPATH = os.path.join(PROJECT_PATH, "archive\\Dataset_BUSI_with_GT")
-CHECKPOINT = os.path.join(PROJECT_PATH, 'models', 'run_017')
-
+MODE = 'train'
+MODEL = 'run_031'
+CHECKPOINT_NAME = 'ckpt_best.pth'
+PROJECT_PATH = 'C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\'
+CHECKPOINT = os.path.join(PROJECT_PATH, 'models', MODEL)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device = torch.device('cpu')
 
-# class evaluator():
-#     def __init__(pred, target):
-#         # TODO: check input shape
-#         self.tp = ((prediction.data == 1) & (labels.data == 1)).cpu().sum()
-
-
-def precision(ref=None, test=None, **metrics_kwargs):
-    total_cm = metrics_kwargs.pop("total_cm")
-    sum_over_row = np.sum(total_cm, axis=0).astype(float)
-    cm_diag = np.diagonal(total_cm).astype(float)
-    precision = cm_diag / sum_over_row
-    return precision
-
-def recall(ref=None, test=None, **metrics_kwargs):
-    total_cm = metrics_kwargs.pop("total_cm")
-    sum_over_col = np.sum(total_cm, axis=1).astype(float)
-    cm_diag = np.diagonal(total_cm).astype(float)
-    precision = cm_diag / sum_over_col
-    return precision
-
-def F1_score(prediction, label):
-    pass
-
-def Dice_score(prediction, label):
-    pass
-
-def sensitivity(prediction, label):
-    pass
-
-def specificity(prediction, label):
-    pass
-
-# TODO: w/ label and w/o label
-# TODO: multi-classes example
 def eval():
     # dataset
-    test_dataset = ImageDataset(dataset_config, mode='train')
+    test_dataset = ImageDataset(dataset_config, mode=MODE)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
     # model
     net = UNet_2d(input_channels=1, num_class=1)
-    checkpoint = os.path.join(CHECKPOINT, 'ckpt_best.pth')
+    checkpoint = os.path.join(CHECKPOINT, CHECKPOINT_NAME)
     state_key = torch.load(checkpoint, map_location=device)
     net.load_state_dict(state_key['net'])
     net.eval()
@@ -92,11 +59,14 @@ def eval():
         total_fp += fp
         total_fn += fn
 
-        # fig, (ax1, ax2, ax3) = plt.subplots(1,3)
-        # ax1.imshow(inputs[0,0].detach().numpy(), 'gray')
-        # ax2.imshow(labels[0,0].detach().numpy(), 'gray')
-        # ax3.imshow(prediction[0,0].detach().numpy(), 'gray')
-        # fig.savefig('img_test_{:3d}.png'.format(i))
+        fig, (ax1, ax2, ax3) = plt.subplots(1,3)
+        ax1.imshow(inputs[0,0].detach().numpy(), 'gray')
+        ax2.imshow(labels[0,0].detach().numpy(), 'gray')
+        ax3.imshow(prediction[0,0].detach().numpy(), 'gray')
+        if not os.path.exists(os.path.join(CHECKPOINT, 'images')):
+            os.mkdir(os.path.join(CHECKPOINT, 'images'))
+        fig.savefig(os.path.join(CHECKPOINT, 'images', 'img_{}_{:3d}.png'.format(MODE, i)))
+        plt.show()
     
     precision =  total_tp / (total_tp + total_fp)
     recall = total_tp / (total_tp + total_fn)
@@ -112,7 +82,7 @@ def eval():
     print('F1 Score: {:.3f}'.format(f1.item()))
     print('Mean DSC: {:.3f}  Std DSC: {:.3f}'.format(dsc_mean.item(), dsc_std.item()))
 
-    # TODO: write to txt or cls
+    # TODO: write to txt or excel
 
 if __name__ == "__main__":
     eval()

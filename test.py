@@ -23,6 +23,14 @@ def dataset_test():
         plt.show()
 
 if __name__ == "__main__":
-    datapath = "C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\archive\\Dataset_BUSI_with_GT"
-    data_analysis(datapath)
+    # datapath = "C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\archive\\Dataset_BUSI_with_GT"
+    # data_analysis(datapath)
     # dataset_test()
+    import cv2
+    path = 'C:\\Users\\test\\Desktop\\Software\\SVN\\Algorithm\\deeplabv3+\\data\\myDataset\\masks_raw\\paintlabel_masks\\0009.PNG'
+    path2 = 'C:\\Users\\test\\Desktop\\Software\\SVN\\Algorithm\\deeplabv3+\\data\\myDataset\\masks\\0003.PNG'
+    path2 = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\models\run_017'
+    print(path2)
+    # input_image = cv2.imread(path2)
+    # plt.imshow(255*input_image, cmap='gray')
+    # plt.show()

@@ -98,27 +98,20 @@ class ImageDataset(Dataset):
         input_image = cv2.imread(self.input_data[idx])[...,0:1]
         gt_image = cv2.imread(self.ground_truth[idx])[...,0:1]
 
-        #  TODO: if input is 401*401, how to test original image?
-        # if self.mode =='train':
+        # TODO: params: pooling_size
         # Data preprocessing
-        # TODO: change this judgement
-        if self.mode == 'train':
+        pooling_size = 16
+        H = input_image.shape[0]
+        W = input_image.shape[1]
+        top, left = (pooling_size-H%pooling_size)//2, (pooling_size-W%pooling_size)//2
+        bottom, right = (pooling_size-H%pooling_size)-top, (pooling_size-W%pooling_size)-left
+        input_image = cv2.copyMakeBorder(input_image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0.0)
+        if gt_image is not None:
+            gt_image = cv2.copyMakeBorder(gt_image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0.0)
+
+        if 'preprocess_config' in self.dataset_config:
             preprocessor = DataPreprocessing(self.dataset_config['preprocess_config'])
             input_image, gt_image = preprocessor(input_image, gt_image)
-
-        if self.mode == 'test':
-            # TODO: params: pooling_size
-            pooling_size = 16
-            H = input_image.shape[0]
-            W = input_image.shape[1]
-            top, left = (pooling_size-H%pooling_size)//2, (pooling_size-W%pooling_size)//2
-            bottom, right = (pooling_size-H%pooling_size)-top, (pooling_size-W%pooling_size)-left
-            input_image = cv2.copyMakeBorder(input_image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0.0)
-            if gt_image is not None:
-                gt_image = cv2.copyMakeBorder(gt_image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0.0)
-            # input_image = cv2.resize(input_image, (H,W), interpolation=cv2.INTER_LINEAR)
-            # if gt_image is not None:
-            #     input_image = cv2.resize(gt_image, (H,W), interpolation=cv2.INTER_NEAREST)
 
         # Transform to Torch tensor
         input_image = self.transform(input_image)

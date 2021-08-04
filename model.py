@@ -12,6 +12,7 @@ class UNet_2d(nn.Module):
     def __init__(self, input_channels, num_class, pool_kernel_size=2, stages=5, root_channel=32, bilinear=True):
         super(UNet_2d, self).__init__()
         self.bilinear = bilinear
+        self.name = '2d_unet'
 
         # model2 = nn.Sequential(collections.OrderedDict([
         #         ('conv1', Conv_Bn_Activation(in_channels=root_channel, out_channels=root_channel)),

@@ -14,8 +14,8 @@ import numpy as np
 from utils import train_utils
 from cfg import dataset_config
 import os
-MODE = 'train'
-MODEL = 'run_031'
+MODE = 'test'
+MODEL = 'run_015'
 CHECKPOINT_NAME = 'ckpt_best.pth'
 PROJECT_PATH = 'C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\'
 CHECKPOINT = os.path.join(PROJECT_PATH, 'models', MODEL)
@@ -24,7 +24,9 @@ device = torch.device('cpu')
 
 def eval():
     # dataset
+    # TODO: whether preprocess, params
     test_dataset = ImageDataset(dataset_config, mode=MODE)
+    dataset_config.pop('preprocess_config')
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
     # model
@@ -39,6 +41,7 @@ def eval():
         print('Sample: {}'.format(i+1))
         inputs, labels = data['input'], data['gt']
         inputs, labels = inputs.to(device), labels.to(device)
+        # print(np.mean(inputs.numpy()), np.std(inputs.numpy()))
         net = net.to(device)
         # TODO: single evaluation tool
         
@@ -66,7 +69,8 @@ def eval():
         if not os.path.exists(os.path.join(CHECKPOINT, 'images')):
             os.mkdir(os.path.join(CHECKPOINT, 'images'))
         fig.savefig(os.path.join(CHECKPOINT, 'images', 'img_{}_{:3d}.png'.format(MODE, i)))
-        plt.show()
+        # TODO: params
+        # plt.show()
     
     precision =  total_tp / (total_tp + total_fp)
     recall = total_tp / (total_tp + total_fn)

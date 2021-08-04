@@ -1,22 +1,22 @@
+import os
+import argparse
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 import torch.optim as optim
-import matplotlib.pyplot as plt
-import argparse
-from model import UNet_2d
 from torch.utils.data import Dataset, DataLoader
-from dataset.dataloader import ImageDataset
-from dataset.preprocessing import DataPreprocessing
-import numpy as np
-from utils import train_utils
 from cfg import dataset_config
-import os
+from dataset.dataloader import ImageDataset
+from model import UNet_2d
+from utils import train_utils
+from utils import metrics
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Using device: {}'.format(device))
-from utils import metrics
-EPOCH = 400
+
+EPOCH = 500
 BATCH_SIZE = 6
 SHUFFLE = True
 PROJECT_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound'
@@ -24,6 +24,7 @@ DATAPATH = os.path.join(PROJECT_PATH, rf'archive\Dataset_BUSI_with_GT')
 CHECKPOINT = train_utils.create_training_path(os.path.join(PROJECT_PATH, 'models'))
 LEARNING_RATE = 1e-2
 SAVING_STEPS = 50
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epoch', type=int, default=EPOCH,
@@ -94,16 +95,26 @@ def main():
     if training_samples%FLAGS.batch_size != 0:
         training_steps += 1
     testing_steps = len(test_dataloader.dataset)
+    experiment = [s for s in FLAGS.checkpoint_path.split('\\') if 'run' in s][0]
+    times = 5
+    level = training_steps//times
+    length = 0
+    temp = level
+    while (temp):
+        temp = temp // 10
+        length += 1
+    level = round(level / 10**(length-1)) * 10**(length-1)
     print("Start Training!!")
     print("Training epoch: {} Batch size: {} Shuffling Data: {} Training Samples: {}".
             format(FLAGS.epoch, FLAGS.batch_size, FLAGS.shuffle, training_samples))
     print(60*"-")
     config = dataset_config.copy()
     config['epoch'], config['batch_size'], config['lr'] = FLAGS.epoch, FLAGS.batch_size, LEARNING_RATE
-    # TODO: different indent of dataset, preprocess, train config
-    train_utils.logging(FLAGS.checkpoint_path, config, filename='logging.txt', access_mode='w+')
-    # TODO: train_logging 1. update on top
-    train_utils.logging(os.path.join(PROJECT_PATH, 'models'), config, filename='train_logging.txt', access_mode='r+')
+    # TODO: different indent of dataset config, preprocess config, train config
+    train_utils.logging(os.path.join(FLAGS.checkpoint_path, 'logging.txt'), config, access_mode='w+')
+    # TODO: train_logging
+    config['experiment'] = experiment
+    train_utils.train_logging(os.path.join(PROJECT_PATH, 'models', 'train_logging.txt'), config)
 
     for epoch in range(1, FLAGS.epoch+1):
         total_loss = 0.0
@@ -121,7 +132,8 @@ def main():
             optimizer.step()
             total_loss += loss.item()
             step_loss.append(loss)
-            if i%10 == 0:
+            
+            if i%level == 0:
                 print('Step {}  Step loss {}'.format(i, loss))
         total_train_loss.append(total_loss/training_steps)
         print('**Epoch {}/{}  Epoch loss {}  Step loss {}'.
@@ -188,7 +200,6 @@ def main():
             ax.set_ylabel('loss')
             ax.set_title('Losses')
             ax.legend()
-            experiment = [s for s in FLAGS.checkpoint_path.split('\\') if 'run' in s][0]
             plt.savefig(os.path.join(FLAGS.checkpoint_path, f'{experiment}_loss.png'))
 
             _, ax = plt.subplots()
@@ -197,7 +208,6 @@ def main():
             ax.set_ylabel('accuracy')
             ax.set_title('Testing Accuracy')
             ax.legend()
-            experiment = [s for s in FLAGS.checkpoint_path.split('\\') if 'run' in s][0]
             plt.savefig(os.path.join(FLAGS.checkpoint_path, f'{experiment}_accuracy.png'))
         print(60*"=")    
 

@@ -1,18 +1,15 @@
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from PIL.Image import merge
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, datasets
-# from opencv_transforms import functional
 import numpy as np
 import os
 import cv2
 import matplotlib.pyplot as plt
-from dataset.preprocessing import DataPreprocessing
-DIR_KEY = 'benign'
-FILE_KEY = 'mask'
+from dataset import preprocessing
+
 
 # TODO: General solution
 def generate_filename_list(path, file_key, dir_key=''):
@@ -27,8 +24,8 @@ def generate_filename_list(path, file_key, dir_key=''):
                     input_paths.append(fullpath)
     return input_paths, gt_paths
 
-def data_analysis(path):
-    input_paths, gt_paths = generate_filename_list(path, dir_key=DIR_KEY, file_key=FILE_KEY)
+def data_analysis(path, dir_key, file_key):
+    input_paths, gt_paths = generate_filename_list(path, file_key, dir_key)
     # print(len(input_paths), len(gt_paths))
     # assert len(input_paths) == len(gt_paths)
     image_height, image_width = [], []
@@ -45,8 +42,8 @@ def data_analysis(path):
 
 # TODO: Rewrite
 # TODO: general data analysis tool
-def data_preprocessing(path):
-    input_paths, gt_paths = generate_filename_list(path)
+def data_preprocessing(path, file_key, dir_key):
+    input_paths, gt_paths = generate_filename_list(path, file_key, dir_key)
     for idx, gt_path in enumerate(gt_paths):
         if 'mask_1' in gt_path:
             print(idx)
@@ -78,9 +75,11 @@ class ImageDataset(Dataset):
         self.mode = mode
         self.transform = transforms.Compose([transforms.ToTensor()])
         self.dataset_config = dataset_config
+        self.dir_key = self.dataset_config['dir_key']
+        self.file_key = self.dataset_config['file_key']
 
         # Split training and testing dataset
-        input_data, ground_truth = generate_filename_list(self.dataset_config['data_path'], dir_key=DIR_KEY, file_key=FILE_KEY)
+        input_data, ground_truth = generate_filename_list(self.dataset_config['data_path'], self.file_key, self.dir_key)
         input_data.sort()
         ground_truth.sort()
         split = int(len(input_data)*self.data_split[0])
@@ -88,7 +87,7 @@ class ImageDataset(Dataset):
             self.input_data, self.ground_truth = input_data[:split], ground_truth[:split]
         elif mode == 'test':
             self.input_data, self.ground_truth = input_data[split:], ground_truth[split:]
-        print("Data using: {}  Samples: {}".format(self.mode, len(self.input_data)))
+        print("{}  Samples: {}".format(self.mode, len(self.input_data)))
 
     def __len__(self):
         return len(self.input_data)
@@ -110,23 +109,34 @@ class ImageDataset(Dataset):
             gt_image = cv2.copyMakeBorder(gt_image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0.0)
 
         if 'preprocess_config' in self.dataset_config:
-            preprocessor = DataPreprocessing(self.dataset_config['preprocess_config'])
+            preprocessor = preprocessing.DataPreprocessing(self.dataset_config['preprocess_config'])
             input_image, gt_image = preprocessor(input_image, gt_image)
+            
+        # TODO: remove judgement after do experiment
+        # print(input_image.dtype, gt_image.dtype)
+        # normalization = True
+        # if normalization:
+        #     input_image = preprocessing.z_score_normalize(input_image)
+        #     if gt_image is not None:
+        #         gt_image = preprocessing.z_score_normalize(gt_image)
+        # print(input_image.dtype, gt_image.dtype)
 
         # Transform to Torch tensor
         input_image = self.transform(input_image)
         gt_image = self.transform(gt_image)
+
+
         return {'input': input_image, 'gt': gt_image}
   
 
 if __name__ == "__main__":
     datapath = "C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\archive\\Dataset_BUSI_with_GT"
     # data_analysis(datapath)
-    input_data, ground_truth = generate_filename_list(datapath)
-    input_data.sort()
-    ground_truth.sort()
-    print(input_data)
-    # # data_preprocessing(datapath)
+    # input_data, ground_truth = generate_filename_list(datapath, file_key, dir_key)
+    # input_data.sort()
+    # ground_truth.sort()
+    # print(input_data)
+    # # data_preprocessing(datapath, file_key, dir_key)
     # train_dataset = ImageDataset(datapath, train='train', data_split=(0.7,0.3), crop_size=256)
     # train_dataloader = DataLoader(train_dataset, batch_size=2, shuffle=True)
     # data = next(iter(train_dataloader))

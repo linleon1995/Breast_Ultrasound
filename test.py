@@ -27,10 +27,11 @@ if __name__ == "__main__":
     # data_analysis(datapath)
     # dataset_test()
     import cv2
-    path = 'C:\\Users\\test\\Desktop\\Software\\SVN\\Algorithm\\deeplabv3+\\data\\myDataset\\masks_raw\\paintlabel_masks\\0009.PNG'
-    path2 = 'C:\\Users\\test\\Desktop\\Software\\SVN\\Algorithm\\deeplabv3+\\data\\myDataset\\masks\\0003.PNG'
-    path2 = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\models\run_017'
-    print(path2)
-    # input_image = cv2.imread(path2)
-    # plt.imshow(255*input_image, cmap='gray')
-    # plt.show()
+    path = 'C:\\Users\\test\\Desktop\\Software\\SVN\\Algorithm\\deeplabv3+\\data\\myDataset\\masks_raw\\paintlabel_masks\\0013.PNG'
+    path2 = 'C:\\Users\\test\\Desktop\\Software\\SVN\\Algorithm\\deeplabv3+\\data\\myDataset\\masks\\0013.PNG'
+    # path2 = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\models\run_017'
+    # print(path2)
+    input_image = cv2.imread(path2)
+    plt.imshow(255*input_image, cmap='gray')
+    plt.axis('off')
+    plt.show()

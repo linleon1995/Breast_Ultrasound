@@ -16,14 +16,15 @@ from utils import metrics
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Using device: {}'.format(device))
 
-EPOCH = 500
-BATCH_SIZE = 6
+EPOCH = 400
+BATCH_SIZE = 20
 SHUFFLE = True
 PROJECT_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound'
 DATAPATH = os.path.join(PROJECT_PATH, rf'archive\Dataset_BUSI_with_GT')
 CHECKPOINT = train_utils.create_training_path(os.path.join(PROJECT_PATH, 'models'))
 LEARNING_RATE = 1e-2
 SAVING_STEPS = 50
+# PRETRAINED_MODEL_PATH = os.path.join(PROJECT_PATH, 'models', 'run_018')
 
 
 parser = argparse.ArgumentParser()
@@ -74,7 +75,6 @@ def main():
     train_dataset = ImageDataset(dataset_config, mode='train')
     train_dataloader = DataLoader(train_dataset, batch_size=FLAGS.batch_size, shuffle=FLAGS.shuffle)
 
-    # dataset_config.pop('preprocess_config')
     test_dataset_config = dataset_config.copy()
     test_dataset_config.pop('preprocess_config')
     test_dataset = ImageDataset(test_dataset_config, mode='test')
@@ -136,12 +136,13 @@ def main():
             if i%level == 0:
                 print('Step {}  Step loss {}'.format(i, loss))
         total_train_loss.append(total_loss/training_steps)
-        print('**Epoch {}/{}  Epoch loss {}  Step loss {}'.
-            format(epoch, FLAGS.epoch, total_train_loss[-1], step_loss[-1]))
+        # TODO: check Epoch loss correctness
+        print(f'**Epoch {epoch}/{FLAGS.epoch}  Training Loss {total_train_loss[-1]}')
         with torch.no_grad():
             net.eval()
             # loss_list = []
             test_loss, test_acc = 0.0, 0.0
+            steps_for_testing_acc = 0
             for _, data in enumerate(test_dataloader):
                 inputs, labels = data['input'], data['gt']
                 inputs, labels = inputs.to(device), labels.to(device)
@@ -150,8 +151,10 @@ def main():
                 # loss_list.append(test_loss)
 
                 prediction = torch.round(outputs)
-                test_acc += metrics.dsc(prediction, labels)
-            avg_test_acc = test_acc / testing_steps
+                if not (prediction.sum() == 0 and labels.sum == 0):
+                    test_acc += metrics.dsc(prediction, labels)
+                    steps_for_testing_acc += 1
+            avg_test_acc = test_acc / steps_for_testing_acc
             avg_test_loss = test_loss / testing_steps
             total_test_loss.append(avg_test_loss)
             total_test_acc.append(avg_test_acc)
@@ -167,7 +170,7 @@ def main():
                 }
                 
             if epoch%saving_steps == 0:
-                print("Saving model with testing loss {:.3f} in epoch {} ".format(0.0, epoch))
+                print("Saving model with testing accuracy {:.3f} in epoch {} ".format(avg_test_loss, epoch))
                 checkpoint_name = 'ckpt_best_{:04d}.pth'.format(epoch)
                 torch.save(checkpoint, os.path.join(FLAGS.checkpoint_path, checkpoint_name))
 

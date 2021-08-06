@@ -1,32 +1,41 @@
 
+import os
+import argparse
+import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 import torch.optim as optim
-import matplotlib.pyplot as plt
-import argparse
-from model import UNet_2d
 from torch.utils.data import Dataset, DataLoader
+import cfg
+from model import UNet_2d
 from dataset.dataloader import ImageDataset
 from dataset.preprocessing import DataPreprocessing
-import numpy as np
 from utils import train_utils
-from cfg import dataset_config
-import os
+from utils import metrics
 MODE = 'test'
-MODEL = 'run_015'
+MODEL = 'run_025'
 CHECKPOINT_NAME = 'ckpt_best.pth'
-PROJECT_PATH = 'C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\'
+PROJECT_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound'
 CHECKPOINT = os.path.join(PROJECT_PATH, 'models', MODEL)
+EVAL_DIR_KEY = ''
+SHOW_IMAGE = False
+SAVE_IMAGE = False
+DATA_AUGMENTATION = False
+# TODO: solve device problem, check behavoir while GPU using
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-device = torch.device('cpu')
+# device = torch.device('cpu')
+
 
 def eval():
     # dataset
-    # TODO: whether preprocess, params
-    test_dataset = ImageDataset(dataset_config, mode=MODE)
-    dataset_config.pop('preprocess_config')
+    config = cfg.dataset_config
+    config['dir_key'] = EVAL_DIR_KEY
+    test_dataset = ImageDataset(config, mode=MODE)
+    if not DATA_AUGMENTATION:
+        config.pop('preprocess_config')
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
     # model
@@ -34,68 +43,54 @@ def eval():
     checkpoint = os.path.join(CHECKPOINT, CHECKPOINT_NAME)
     state_key = torch.load(checkpoint, map_location=device)
     net.load_state_dict(state_key['net'])
+    net = net.to(device)
     net.eval()
     total_tp, total_tn, total_fp, total_fn = 0, 0, 0, 0
     total_dsc = []
+    total_precision, total_recall, total_acc = 0, 0, 0
+    evaluator = metrics.SegmentationMetrics()
+    if len(test_dataloader) == 0:
+        raise ValueError('No Data Exist. Please check the data path.')
+    fig, (ax1, ax2, ax3) = plt.subplots(1,3, figsize=(6, 2))
     for i, data in enumerate(test_dataloader):
         print('Sample: {}'.format(i+1))
         inputs, labels = data['input'], data['gt']
         inputs, labels = inputs.to(device), labels.to(device)
-        # print(np.mean(inputs.numpy()), np.std(inputs.numpy()))
-        net = net.to(device)
-        # TODO: single evaluation tool
-        
         output = net(inputs)
         prediction = torch.round(output)
 
-        tp = ((prediction.data == 1) & (labels.data == 1)).cpu().sum()
-        tn = ((prediction.data == 0) & (labels.data == 0)).cpu().sum()
-        fn = ((prediction.data == 0) & (labels.data == 1)).cpu().sum()
-        fp = ((prediction.data == 1) & (labels.data == 0)).cpu().sum()
+        evals = evaluator(labels, prediction)
+        tp, fp, fn = evaluator.tp, evaluator.fp, evaluator.fn
+        if (2*tp + fp + fn) != 0:
+            total_dsc.append(evals['f1'])
+            total_precision += evals['precision']
+            total_recall += evals['recall']
+            total_acc += evals['accuracy']
+        
+        # TODO: if EVAL_DIR_KEY = ''
+        if not os.path.exists(os.path.join(CHECKPOINT, 'images', EVAL_DIR_KEY)):
+            os.makedirs(os.path.join(CHECKPOINT, 'images', EVAL_DIR_KEY))
 
-        if labels.data.cpu().sum() != 0:
-            dsc = 2*tp / (2*tp + fp +fn)
-            total_dsc.append(dsc)
+        if SAVE_IMAGE or SHOW_IMAGE:
+            ax1.imshow(inputs.cpu()[0,0].detach().numpy(), 'gray')
+            ax2.imshow(labels.cpu()[0,0].detach().numpy(), 'gray')
+            ax3.imshow(prediction.cpu()[0,0].detach().numpy(), 'gray')
+        if SAVE_IMAGE:
+            image_code = i + 1
+            fig.savefig(os.path.join(CHECKPOINT, 'images', EVAL_DIR_KEY, f'{EVAL_DIR_KEY}_{MODE}_{image_code:04d}.png'))
+        if SHOW_IMAGE:
+            plt.show()
 
-        total_tp += tp
-        total_tn += tn
-        total_fp += fp
-        total_fn += fn
-
-        fig, (ax1, ax2, ax3) = plt.subplots(1,3)
-        ax1.imshow(inputs[0,0].detach().numpy(), 'gray')
-        ax2.imshow(labels[0,0].detach().numpy(), 'gray')
-        ax3.imshow(prediction[0,0].detach().numpy(), 'gray')
-        if not os.path.exists(os.path.join(CHECKPOINT, 'images')):
-            os.mkdir(os.path.join(CHECKPOINT, 'images'))
-        fig.savefig(os.path.join(CHECKPOINT, 'images', 'img_{}_{:3d}.png'.format(MODE, i)))
-        # TODO: params
-        # plt.show()
-    
-    precision =  total_tp / (total_tp + total_fp)
-    recall = total_tp / (total_tp + total_fn)
-    specificity = total_tn / (total_tn + total_fp)
-    f1 = 2*total_tp / (2*total_tp + total_fp + total_fn)
-    dsc_mean = sum(total_dsc) / len(total_dsc)
-    dsc_std = [(dsc-dsc_mean)**2 for dsc in total_dsc]
-    dsc_std = (sum(dsc_std) / len(dsc_std))**0.5
-
-    print('Precision: {:.3f}'.format(precision.item()))
-    print('Recall/Sensitivity: {:.3f}'.format(recall.item()))
-    print('Specificity: {:.3f}'.format(specificity.item()))
-    print('F1 Score: {:.3f}'.format(f1.item()))
-    print('Mean DSC: {:.3f}  Std DSC: {:.3f}'.format(dsc_mean.item(), dsc_std.item()))
+    mean_dsc = sum(total_dsc)/len(total_dsc)
+    std_dsc = [(dsc-mean_dsc)**2 for dsc in total_dsc]
+    std_dsc = (sum(std_dsc) / len(std_dsc))**0.5
+    print('Precision: {:.3f}'.format((total_precision/len(total_dsc)).item()))
+    print('Recall/Sensitivity: {:.3f}'.format((total_recall/len(total_dsc)).item()))
+    print('F1 Score: {:.3f}'.format(mean_dsc.item()))
+    print('F1 Score std: {:.3f}'.format(std_dsc.item()))
 
     # TODO: write to txt or excel
 
 if __name__ == "__main__":
     eval()
-    # datapath = "C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\archive\\Dataset_BUSI_with_GT"
-    # # data_analysis(datapath)
-    # from dataset import dataloader
-    # input_data, ground_truth = dataloader.generate_filename_list(datapath, file_key='mask', dir_key='benign')
-    # input_data.sort()
-    # ground_truth.sort()
-    # # print(input_data)
-    # print(len(input_data))
-    # print('' in datapath)
+    

@@ -61,6 +61,8 @@ def show_data_information(image, label, method=None):
 def HU_to_pixelvalue():
     pass
 
+def z_score_normalize(image):
+    return np.uint8((image-np.mean(image)) / np.std(image))
 
 # TODO: default params
 # TODO: test image only, label only, image_label pair

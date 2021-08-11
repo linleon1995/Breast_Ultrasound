@@ -1,0 +1,58 @@
+device: cuda
+# model configuration
+model:
+  name: Unet2D
+
+# training configuration
+train:
+  batch_size: 1
+  epoch: 300
+  learning_rate: 0.01
+  project_path: C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound
+  checkpoint_saving_steps: 50
+
+# trainer configuration
+
+# optimizer configuration
+
+# loss function configuration
+# dataset configuration
+aug_samples:
+  crop: True
+  flip: True
+  scale: True
+  crop_size: 512
+
+dataset:
+  data_path: C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\archive\Dataset_BUSI_with_GT
+  data_split: 
+    - 1.0
+    - 0.0
+  shuffle: False
+  dir_key: "normal"
+  file_key: mask
+  preprocess_config:
+    crop_size: 
+      - 512
+      - 512
+    PadToSquare: False
+    HorizontalFlip: False
+    RandCrop: False
+    RandScale: False
+    ScaleToSize: False
+    ScaleLimitSize: True
+    padding_height: 512
+    padding_width: 512
+    padding_value: 0.0
+    flip_prob: 0.5
+    min_scale_factor: 1.0
+    max_scale_factor: 1.25
+    step_size: 0.125
+    resize_method: Bilinear
+    flip_prob: 0.5
+    scale_size: 
+      - 512
+      - 512
+  
+  
+

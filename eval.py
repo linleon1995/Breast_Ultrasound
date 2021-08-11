@@ -16,11 +16,11 @@ from dataset.preprocessing import DataPreprocessing
 from utils import train_utils
 from utils import metrics
 MODE = 'test'
-MODEL = 'run_025'
-CHECKPOINT_NAME = 'ckpt_best.pth'
+MODEL = 'run_037'
+CHECKPOINT_NAME = 'ckpt_best_0200.pth'
 PROJECT_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound'
 CHECKPOINT = os.path.join(PROJECT_PATH, 'models', MODEL)
-EVAL_DIR_KEY = ''
+EVAL_DIR_KEY = 'malignant'
 SHOW_IMAGE = False
 SAVE_IMAGE = False
 DATA_AUGMENTATION = False
@@ -45,13 +45,12 @@ def eval():
     net.load_state_dict(state_key['net'])
     net = net.to(device)
     net.eval()
-    total_tp, total_tn, total_fp, total_fn = 0, 0, 0, 0
-    total_dsc = []
-    total_precision, total_recall, total_acc = 0, 0, 0
+    total_precision, total_recall, total_dsc = [], [], []
+    # total_tp, total_fp, total_fn = 0, 0, 0
     evaluator = metrics.SegmentationMetrics()
     if len(test_dataloader) == 0:
         raise ValueError('No Data Exist. Please check the data path.')
-    fig, (ax1, ax2, ax3) = plt.subplots(1,3, figsize=(6, 2))
+    # fig, (ax1, ax2, ax3) = plt.subplots(1,3, figsize=(6, 2))
     for i, data in enumerate(test_dataloader):
         print('Sample: {}'.format(i+1))
         inputs, labels = data['input'], data['gt']
@@ -63,31 +62,49 @@ def eval():
         tp, fp, fn = evaluator.tp, evaluator.fp, evaluator.fn
         if (2*tp + fp + fn) != 0:
             total_dsc.append(evals['f1'])
-            total_precision += evals['precision']
-            total_recall += evals['recall']
-            total_acc += evals['accuracy']
-        
+
+        total_precision.append(evals['precision'])
+        total_recall.append(evals['recall'])
+        # total_tp += tp
+        # total_fp += fp
+        # total_fn += fn
+
         # TODO: if EVAL_DIR_KEY = ''
         if not os.path.exists(os.path.join(CHECKPOINT, 'images', EVAL_DIR_KEY)):
             os.makedirs(os.path.join(CHECKPOINT, 'images', EVAL_DIR_KEY))
 
         if SAVE_IMAGE or SHOW_IMAGE:
+            fig, (ax1, ax2, ax3) = plt.subplots(1,3, figsize=(6, 2))
             ax1.imshow(inputs.cpu()[0,0].detach().numpy(), 'gray')
             ax2.imshow(labels.cpu()[0,0].detach().numpy(), 'gray')
             ax3.imshow(prediction.cpu()[0,0].detach().numpy(), 'gray')
         if SAVE_IMAGE:
             image_code = i + 1
-            fig.savefig(os.path.join(CHECKPOINT, 'images', EVAL_DIR_KEY, f'{EVAL_DIR_KEY}_{MODE}_{image_code:04d}.png'))
+            fig.savefig(os.path.join(
+                CHECKPOINT, 'images', EVAL_DIR_KEY, f'{EVAL_DIR_KEY}_{MODE}_{image_code:04d}.png'))
+            plt.close(fig)
         if SHOW_IMAGE:
             plt.show()
+    # print(tp, evaluator.total_tp, total_tp)
 
-    mean_dsc = sum(total_dsc)/len(total_dsc)
-    std_dsc = [(dsc-mean_dsc)**2 for dsc in total_dsc]
-    std_dsc = (sum(std_dsc) / len(std_dsc))**0.5
-    print('Precision: {:.3f}'.format((total_precision/len(total_dsc)).item()))
-    print('Recall/Sensitivity: {:.3f}'.format((total_recall/len(total_dsc)).item()))
-    print('F1 Score: {:.3f}'.format(mean_dsc.item()))
-    print('F1 Score std: {:.3f}'.format(std_dsc.item()))
+    precision = metrics.precision(evaluator.total_tp, evaluator.total_fp).item() if evaluator.total_tp != 0 else 0
+    recall = metrics.recall(evaluator.total_tp, evaluator.total_fn).item() if evaluator.total_tp != 0 else 0
+    print(30*'-')
+    print(f'total precision: {precision:.3f}')
+    print(f'total recall: {recall:.3f}\n')
+
+    mean_precision = sum(total_precision)/len(total_precision)
+    mean_recall = sum(total_recall)/len(total_recall)
+    mean_dsc = sum(total_dsc)/len(total_dsc) if len(total_dsc) != 0 else 0
+    if sum(total_dsc) == 0:
+        std_dsc = 0
+    else:
+        std_dsc = [(dsc-mean_dsc)**2 for dsc in total_dsc]
+        std_dsc = ((sum(std_dsc) / len(std_dsc))**0.5).item()
+    print(f'mean precision: {mean_precision:.3f}')
+    print(f'mean recall: {mean_recall:.3f}')
+    print(f'mean dsc: {mean_dsc:.3f}')
+    print(f'std dsc: {std_dsc:.3f}')
 
     # TODO: write to txt or excel
 

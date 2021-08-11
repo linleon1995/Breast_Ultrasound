@@ -10,7 +10,6 @@ import cv2
 import matplotlib.pyplot as plt
 from dataset import preprocessing
 
-
 # TODO: General solution
 def generate_filename_list(path, file_key, dir_key=''):
     input_paths, gt_paths = [], []
@@ -25,6 +24,7 @@ def generate_filename_list(path, file_key, dir_key=''):
     return input_paths, gt_paths
 
 def data_analysis(path, dir_key, file_key):
+    """check image and mask value range"""
     input_paths, gt_paths = generate_filename_list(path, file_key, dir_key)
     # print(len(input_paths), len(gt_paths))
     # assert len(input_paths) == len(gt_paths)
@@ -43,6 +43,7 @@ def data_analysis(path, dir_key, file_key):
 # TODO: Rewrite
 # TODO: general data analysis tool
 def data_preprocessing(path, file_key, dir_key):
+    """merge mask"""
     input_paths, gt_paths = generate_filename_list(path, file_key, dir_key)
     for idx, gt_path in enumerate(gt_paths):
         if 'mask_1' in gt_path:
@@ -62,12 +63,79 @@ def data_preprocessing(path, file_key, dir_key):
             filename = mask_path_list[0]
             cv2.imwrite(filename, mask)
 
+
+def generate_augment_samples(path, aug_config, dataset_config, mode):
+    dataset = ImageDataset(dataset_config, mode)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    crop_size = aug_config.crop_size
+    ratio = 0.75
+    for idx, data in enumerate(dataloader):
+        print(f'Sample {idx}')
+        inputs, labels = data['input'].numpy(), data['gt'].numpy()
+        # inputs, labels = inputs.to(device), labels.to(device)
+        height, width = inputs.shape[2:]
+        input_list = [inputs[0,0]]
+        label_list = [labels[0,0]]
+
+        # flipping
+        if aug_config.flip:
+            flipped_image, flipped_label = [], []
+            for image, label in zip(input_list, label_list):
+                flip_image, flip_label = preprocessing.rand_flip(image, label, 1.0)
+                flipped_image.append(flip_image)
+                flipped_label.append(flip_label)
+            input_list.extend(flipped_image)    
+            label_list.extend(flipped_label)    
+
+        # scaling
+        # cropping
+        if aug_config.crop:
+            cropped_image, cropped_label = [], []
+            for image, label in zip(input_list, label_list):
+                def crop5(image):
+                    crop_dict = {}
+                    crop_dict['left_top'] = image[:crop_size, :crop_size]
+
+                    if crop_size/width < ratio and crop_size/height < ratio:
+                        crop_dict['right_bot'] = image[(height-crop_size):, (width-crop_size):]
+
+                        offset_height = (height - crop_size) // 2
+                        offset_width = (width - crop_size) // 2
+                        crop_dict['center'] = image[offset_height:height-offset_height, offset_width:width-offset_width]
+
+                    if crop_size/width < ratio:
+                        crop_dict['right_top'] = image[:crop_size, (width-crop_size):]
+
+                    if crop_size/height < ratio:
+                        crop_dict['left_bot'] = image[(height-crop_size):, :crop_size]
+                    crop_dict = list(crop_dict.values())
+                    return crop_dict
+                # TODO: use dict instead of list
+                cropped_image.extend(crop5(image))
+                cropped_label.extend(crop5(label))
+                    
+
+                # cropped_image.append(image[:height, :width])
+                # cropped_image.append(image[:height, :width])
+                # cropped_label.append(label[:height, :width])
+            input_list = cropped_image
+            label_list = cropped_label
+        j = 1
+        for image, label in zip(input_list, label_list):
+            cv2.imwrite(os.path.join(path, f'{dataset_config.dir_key}_{idx:04d}_aug{j}.png'), image*255)
+            cv2.imwrite(os.path.join(path, f'{dataset_config.dir_key}_{idx:04d}_mask_aug{j}.png'), label*255)
+            j += 1
+        # plt.imshow(label_list[-1], 'gray')
+        # plt.show()
+        
+
 # TODO: test execute time between generate path list and load local file
 # TODO: imread for RGB, Gray?
 class ImageDataset(Dataset):
     def __init__(self, dataset_config, mode):
         data_split = dataset_config['data_split']
-        assert isinstance(data_split, tuple)
+        assert isinstance(data_split, list)
         assert isinstance(data_split[0], float)
         assert isinstance(data_split[1], float)
         assert data_split[0] + data_split[1] == 1

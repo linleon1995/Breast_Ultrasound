@@ -12,7 +12,7 @@ PROJECT_PATH = "C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\"
 DATA_PATH = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\archive\Dataset_BUSI_with_GT'
 # CHECKPOINT_PATH = train_utils.create_training_path(os.path.join(PROJECT_PATH, 'models'))
 # TODO: move to evaluation config
-SHOW_PREPROCESSING = False
+SHOW_PREPROCESSING = True
 DIR_KEY = ''
 FILE_KEY = 'mask'
 

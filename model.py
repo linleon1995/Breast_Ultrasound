@@ -1,6 +1,10 @@
+#  Code Refer to: https://github.com/wolny/pytorch-3dunet
+from functools import partial
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision import models
 import layers
 import collections
 
@@ -8,6 +12,144 @@ Conv_Bn_Activation = layers.Conv_Bn_Activation
 DoubleConv = layers.DoubleConv
 #  TODO: upsampling align_corner
 # TODO: general solution
+
+class Encoder(nn.Module):
+    def __init__(self, backbone, pretrained=True):
+        super(Encoder, self).__init__()
+        self.pretrained = pretrained
+        if backbone == 'vgg16':
+            self.model = models.vgg16(pretrained=self.pretrained)
+        elif backbone == 'resnet50':
+            self.model = models.resnet50(pretrained=self.pretrained)
+        elif backbone == 'resnext50':
+            self.model = models.resnext50_32x4d(pretrained=self.pretrained)
+        elif backbone == 'wide_resnet':
+            self.model = models.wide_resnet50_2(pretrained=self.pretrained)
+        else:
+            raise ValueError('Undefined Backbone Name.')
+
+    def forward(self, x):
+        return self.model(x)
+
+
+class Decoder(nn.Module):
+    # def __init__(self, input_channels, num_class, pool_kernel_size=2, stages=5, root_channel=32, bilinear=True):
+    def __init__(self, in_channels, out_channels, conv_kernel_size=3, scale_factor=(2, 2, 2), basic_module=DoubleConv,
+                 conv_layer_order='gcr', num_groups=8, mode='nearest', padding=1, upsample=True, align_corner=True):
+        super(Decoder, self).__init__()
+
+        if upsample:
+            if basic_module == DoubleConv:
+                # if DoubleConv is the basic_module use interpolation for upsampling and concatenation joining
+                self.upsampling = InterpolateUpsampling(mode=mode)
+                # concat joining
+                self.joining = partial(self._joining, concat=True)
+            else:
+                # if basic_module=ExtResNetBlock use transposed convolution upsampling and summation joining
+                self.upsampling = TransposeConvUpsampling(in_channels=in_channels, out_channels=out_channels,
+                                                          kernel_size=conv_kernel_size, scale_factor=scale_factor)
+                # sum joining
+                self.joining = partial(self._joining, concat=False)
+                # adapt the number of in_channels for the ExtResNetBlock
+                in_channels = out_channels
+        else:
+            # no upsampling
+            self.upsampling = NoUpsampling()
+            # concat joining
+            self.joining = partial(self._joining, concat=True)
+
+        self.basic_module = basic_module(in_channels, out_channels,
+                                         encoder=False,
+                                         kernel_size=conv_kernel_size,
+                                         order=conv_layer_order,
+                                         num_groups=num_groups,
+                                         padding=padding)
+
+    def forward(self, encoder_features, x):
+        x = self.upsampling(encoder_features=encoder_features, x=x)
+        x = self.joining(encoder_features, x)
+        x = self.basic_module(x)
+        return x
+
+    @staticmethod
+    def _joining(encoder_features, x, concat):
+        if concat:
+            return torch.cat((encoder_features, x), dim=1)
+        else:
+            return encoder_features + x 
+        
+
+class AbstractUpsampling(nn.Module):
+    """
+    Abstract class for upsampling. A given implementation should upsample a given 5D input tensor using either
+    interpolation or learned transposed convolution.
+    """
+
+    def __init__(self, upsample):
+        super(AbstractUpsampling, self).__init__()
+        self.upsample = upsample
+
+    def forward(self, encoder_features, x):
+        # get the spatial dimensions of the output given the encoder_features
+        output_size = encoder_features.size()[2:]
+        # upsample the input and return
+        return self.upsample(x, output_size)
+
+
+class InterpolateUpsampling(AbstractUpsampling):
+    """
+    Args:
+        mode (str): algorithm used for upsampling:
+            'nearest' | 'linear' | 'bilinear' | 'trilinear' | 'area'. Default: 'nearest'
+            used only if transposed_conv is False
+    """
+
+    def __init__(self, mode='nearest'):
+        upsample = partial(self._interpolate, mode=mode)
+        super().__init__(upsample)
+
+    @staticmethod
+    def _interpolate(x, size, mode):
+        return F.interpolate(x, size=size, mode=mode)
+
+
+class TransposeConvUpsampling(AbstractUpsampling):
+    """
+    Args:
+        in_channels (int): number of input channels for transposed conv
+            used only if transposed_conv is True
+        out_channels (int): number of output channels for transpose conv
+            used only if transposed_conv is True
+        kernel_size (int or tuple): size of the convolving kernel
+            used only if transposed_conv is True
+        scale_factor (int or tuple): stride of the convolution
+            used only if transposed_conv is True
+    """
+
+    def __init__(self, in_channels=None, out_channels=None, kernel_size=3, scale_factor=(2, 2, 2)):
+        # make sure that the output size reverses the MaxPool3d from the corresponding encoder
+        upsample = nn.ConvTranspose3d(in_channels, out_channels, kernel_size=kernel_size, stride=scale_factor,
+                                      padding=1)
+        super().__init__(upsample)
+
+
+class NoUpsampling(AbstractUpsampling):
+    def __init__(self):
+        super().__init__(self._no_upsampling)
+
+    @staticmethod
+    def _no_upsampling(x, size):
+        return x
+
+# class UNet_2d(nn.Module):
+#     def __init__(self, input_channels, num_class, pool_kernel_size=2, stages=5, root_channel=32, bilinear=True):
+#         super(UNet_2d, self).__init__()
+#         self.bilinear = bilinear
+#         self.name = '2d_unet'
+
+#     def forward(self, x):
+
+
 class UNet_2d(nn.Module):
     def __init__(self, input_channels, num_class, pool_kernel_size=2, stages=5, root_channel=32, bilinear=True):
         super(UNet_2d, self).__init__()
@@ -78,7 +220,7 @@ class UNet_2d(nn.Module):
         x = self.conv8(x)
         return nn.Sigmoid()(self.classifier(x))
 
-# if __name__ == "__main__":
-#     # print(Conv_Bn_Activation(32, 64))
-#     print(UNet_2d(num_class=2))
-#     # num_class, pool_kernel_size=2, stages=5, root_channel=32, bilinear=True
+if __name__ == "__main__":
+    print(Encoder('resnet50'))
+    # print(UNet_2d(num_class=2))
+    # num_class, pool_kernel_size=2, stages=5, root_channel=32, bilinear=True

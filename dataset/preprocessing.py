@@ -6,8 +6,9 @@ from torchvision import transforms, datasets
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-import cfg
-SHOW_PREPROCESSING = cfg.SHOW_PREPROCESSING
+# import cfg
+# SHOW_PREPROCESSING = cfg.SHOW_PREPROCESSING
+SHOW_PREPROCESSING = True
 
 def get_random_scale(min_scale_factor, max_scale_factor, step_size):
     """Gets a random scale value.
@@ -39,6 +40,26 @@ def get_random_scale(min_scale_factor, max_scale_factor, step_size):
 def rand_crop(image, label=None, size=None):
     pass
 
+def rand_rotate(image, label=None, min_angle=0, max_angle=0, center=None, scale=1.0, borderValue=0):
+    (h, w) = image.shape[:2]
+    if center is None:
+        center = (w / 2, h / 2)
+    assert max_angle > min_angle
+    if min_angle == max_angle:
+        angle = min_angle
+    else:
+        angle = np.random.uniform(min_angle, max_angle)
+    M = cv2.getRotationMatrix2D(center, angle, scale)
+    rotated_image = cv2.warpAffine(image, M, (w, h), borderValue)
+    rotated_label = cv2.warpAffine(label, M, (w, h), borderValue)
+    return (rotated_image, rotated_label)
+
+def gaussian_blur(image, label=None, kernel_size=(7,7)):
+    assert (isinstance(kernel_size, tuple) or isinstance(kernel_size, list))
+    blur_image = cv2.GaussianBlur(image, kernel_size, 0)
+    if label is not None:
+        blur_label = cv2.GaussianBlur(label, kernel_size, 0)
+    return (blur_image, blur_label)
 
 def rand_flip(image, label=None, flip_prob=0.5):
     randnum = np.random.uniform(0.0, 1.0)
@@ -72,12 +93,15 @@ def z_score_normalize(image):
 # TODO: rectangle resize?
 class DataPreprocessing():
     def __init__(self, preprocess_config):
-        self.PadToSquare = preprocess_config['PadToSquare']
         self.RandFlip = preprocess_config['HorizontalFlip']
         self.RandCrop = preprocess_config['RandCrop']
         self.RandScale = preprocess_config['RandScale']
+        self.PadToSquare = preprocess_config['PadToSquare']
         self.ScaleToSize = preprocess_config['ScaleToSize']
         self.ScaleLimitSize = preprocess_config['ScaleLimitSize']
+        self.RandRotate = preprocess_config['RandRotate']
+        self.GaussianBlur = preprocess_config['GaussianBlur']
+
         self.padding_height = preprocess_config['padding_height']
         self.padding_width = preprocess_config['padding_width']
         self.padding_value = preprocess_config['padding_value']
@@ -89,6 +113,8 @@ class DataPreprocessing():
         self.resize_method = cv2.INTER_LINEAR if preprocess_config['resize_method'] == 'Bilinear' else None
         self.crop_size = preprocess_config['crop_size']
         self.scale_size = preprocess_config['scale_size']
+        self.min_angle = preprocess_config['min_angle']
+        self.max_angle = preprocess_config['max_angle']
 
     def __call__(self, image, label=None):
         self.original_image = image
@@ -153,13 +179,23 @@ class DataPreprocessing():
 
         if self.RandScale:
             scale = get_random_scale(self.min_scale_factor, self.max_scale_factor, self.step_size)
-            print(scale)
+            # print(scale)
             Hs, Ws = int(scale*Hs), int(scale*Ws)
             image = cv2.resize(image, (Ws,Hs), interpolation=self.resize_method)
             if label is not None:
                 label = cv2.resize(label, (Ws,Hs), interpolation=cv2.INTER_NEAREST)
             if SHOW_PREPROCESSING:
                 show_data_information(image, label, 'random scale')
+
+        if self.RandRotate:
+            image, label = rand_rotate(image, label, min_angle=self.min_angle, max_angle=self.max_angle)
+            if SHOW_PREPROCESSING:
+                show_data_information(image, label, 'rotate')
+
+        if self.GaussianBlur:
+            image, label = gaussian_blur(image, label)
+            if SHOW_PREPROCESSING:
+                show_data_information(image, label, 'gaussian blur')
 
         if self.RandCrop:
             Ws = np.random.randint(0, Ws - self.crop_size[1] + 1, 1)[0]

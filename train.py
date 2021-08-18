@@ -27,7 +27,7 @@ print('Using device: {}'.format(device))
 # CHECKPOINT = train_utils.create_training_path(os.path.join(config.train.project_path, 'models'))
 
 DEBUG = False
-CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2dunet_512_config.yml'
+CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2dunet_seg_train_config.yml'
 
 
 # parser = argparse.ArgumentParser()
@@ -67,10 +67,11 @@ class DiceLoss(nn.Module):
 		return loss
 
 def main():
-    if DEBUG:
-        config = train_utils.load_config_yaml(CONFIG_PATH)
-    else:
-        config = train_utils.load_config()
+    # if DEBUG:
+    #     config = train_utils.load_config_yaml(CONFIG_PATH)
+    # else:
+    #     config = train_utils.load_config()
+    config = train_utils.load_config(CONFIG_PATH)
     config = train_utils.DictAsMember(config)
     checkpoint_path = train_utils.create_training_path(os.path.join(config.train.project_path, 'models'))
 
@@ -118,7 +119,7 @@ def main():
             format(config.train.epoch, config.train.batch_size, config.dataset.shuffle, training_samples))
     print(60*"-")
     
-    train_utils.logging(os.path.join(checkpoint_path, 'logging.txt'), config, access_mode='w+')
+    train_utils._logging(os.path.join(checkpoint_path, 'logging.txt'), config, access_mode='w+')
     # TODO: train_logging
     config['experiment'] = experiment
     train_utils.train_logging(os.path.join(config.train.project_path, 'models', 'train_logging.txt'), config)

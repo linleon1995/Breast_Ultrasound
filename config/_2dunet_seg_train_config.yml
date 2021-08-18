@@ -5,11 +5,11 @@ model:
 
 # training configuration
 train:
-  batch_size: 1
-  epoch: 300
+  batch_size: 6
+  epoch: 600
   learning_rate: 0.01
   project_path: C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound
-  checkpoint_saving_steps: 50
+  checkpoint_saving_steps: 100
 
 # trainer configuration
 
@@ -17,19 +17,14 @@ train:
 
 # loss function configuration
 # dataset configuration
-aug_samples:
-  crop: True
-  flip: True
-  scale: True
-  crop_size: 512
-
 dataset:
   data_path: C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\archive\Dataset_BUSI_with_GT
+  # data_path: C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\Kaggle_BU_aug
   data_split: 
-    - 1.0
-    - 0.0
-  shuffle: False
-  dir_key: "normal"
+    - 0.7
+    - 0.3
+  shuffle: True
+  dir_key: "benign"
   file_key: mask
   preprocess_config:
     crop_size: 
@@ -40,7 +35,10 @@ dataset:
     RandCrop: False
     RandScale: False
     ScaleToSize: False
-    ScaleLimitSize: True
+    ScaleLimitSize: False
+    RandRotate: True
+    GaussianBlur: True
+
     padding_height: 512
     padding_width: 512
     padding_value: 0.0
@@ -53,6 +51,7 @@ dataset:
     scale_size: 
       - 512
       - 512
-  
+    min_angle: -45
+    max_angle: 45
   
 

@@ -27,7 +27,7 @@ DATA_AUGMENTATION = True
 # TODO: solve device problem, check behavoir while GPU using
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
-CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_aug_512_config.yml'
+CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2dunet_seg_test_config.yml'
 
 def eval():
     # dataset

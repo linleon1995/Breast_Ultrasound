@@ -1,3 +1,4 @@
+import importlib
 import numpy as np
 import torch
 
@@ -85,3 +86,22 @@ class SegmentationMetrics():
         fp = ((self.pred.data == 1) & (self.label.data == 0)).sum()
         return (tp, tn, fn, fp)
 
+
+def get_evaluation_metric(config):
+    """
+    Returns the evaluation metric function based on provided configuration
+    :param config: (dict) a top level configuration object containing the 'eval_metric' key
+    :return: an instance of the evaluation metric
+    """
+
+    def _metric_class(class_name):
+        m = importlib.import_module('utils.metrics')
+        clazz = getattr(m, class_name)
+        return clazz
+
+    assert 'eval_metric' in config, 'Could not find evaluation metric configuration'
+    metric_config = config['eval_metric']
+    metric_class = _metric_class(metric_config['name'])
+    return metric_class(**metric_config)
+
+    

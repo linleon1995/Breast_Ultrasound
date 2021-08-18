@@ -11,11 +11,14 @@ import matplotlib.pyplot as plt
 from dataset import preprocessing
 
 # TODO: General solution
-def generate_filename_list(path, file_key, dir_key=''):
+def generate_filename_list(path, file_key, dir_key='', only_filename=False):
     input_paths, gt_paths = [], []
     for root, dirs, files in os.walk(path):
         for f in files:
-            fullpath = os.path.join(root, f)
+            if not only_filename:
+                fullpath = os.path.join(root, f)
+            else:
+                fullpath = f
             if dir_key in fullpath:
                 if file_key in fullpath:
                     gt_paths.append(fullpath)

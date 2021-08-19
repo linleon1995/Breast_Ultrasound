@@ -8,3 +8,10 @@ def get_class(class_name, modules):
         if clazz is not None:
             return clazz
     raise RuntimeError(f'Unsupported dataset class: {class_name}')
+
+
+def load_content_from_txt(path, access_mode='r'):
+    with open(path, access_mode) as fw:
+        # content = fw.readlines()
+        content = fw.read().splitlines()
+    return content

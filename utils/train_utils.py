@@ -67,8 +67,8 @@ def get_logger(name, level=logging.INFO):
 
 
 
-def load_config_yaml(config_file):
-    return yaml.safe_load(open(config_file, 'r'))
+# def load_config_yaml(config_file):
+#     return yaml.safe_load(open(config_file, 'r'))
 
 
 def create_training_path(train_logdir):
@@ -191,6 +191,12 @@ def create_sample_plotter(sample_plotter_config):
 def get_number_of_learnable_parameters(model):
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     return sum([np.prod(p.size()) for p in model_parameters])
+
+
+def load_content_from_txt(path, access_mode='r'):
+    with open(path, access_mode) as fw:
+        content = fw.readlines()
+    return content
 
 
 if __name__ == '__main__':

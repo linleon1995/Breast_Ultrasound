@@ -15,15 +15,16 @@ from dataset.dataloader import ImageDataset
 from dataset.preprocessing import DataPreprocessing
 from utils import train_utils
 from utils import metrics
+from utils import configuration
 MODE = 'test'
-MODEL = 'run_034'
+MODEL = 'run_032'
 CHECKPOINT_NAME = 'ckpt_best.pth'
 PROJECT_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound'
 CHECKPOINT = os.path.join(PROJECT_PATH, 'models', MODEL)
-EVAL_DIR_KEY = 'benign'
-SHOW_IMAGE = True
+EVAL_DIR_KEY = ''
+SHOW_IMAGE = False
 SAVE_IMAGE = False
-DATA_AUGMENTATION = True
+DATA_AUGMENTATION = False
 # TODO: solve device problem, check behavoir while GPU using
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
@@ -32,7 +33,7 @@ CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2
 def eval():
     # dataset
     # config = cfg.dataset_config
-    config = train_utils.load_config_yaml(CONFIG_PATH)
+    config = configuration.load_config(CONFIG_PATH)
     config = train_utils.DictAsMember(config)
     dataset_config = config.dataset
     dataset_config['dir_key'] = EVAL_DIR_KEY
@@ -48,7 +49,7 @@ def eval():
     net.load_state_dict(state_key['net'])
     net = net.to(device)
     net.eval()
-    total_precision, total_recall, total_dsc = [], [], []
+    total_precision, total_recall, total_dsc, total_iou = [], [], [], []
     # total_tp, total_fp, total_fn = 0, 0, 0
     evaluator = metrics.SegmentationMetrics()
     if len(test_dataloader) == 0:
@@ -63,8 +64,9 @@ def eval():
 
         evals = evaluator(labels, prediction)
         tp, fp, fn = evaluator.tp, evaluator.fp, evaluator.fn
-        if (2*tp + fp + fn) != 0:
+        if (tp + fp + fn) != 0:
             total_dsc.append(evals['f1'])
+            total_iou.append(evals['iou'])
 
         total_precision.append(evals['precision'])
         total_recall.append(evals['recall'])
@@ -93,21 +95,23 @@ def eval():
     precision = metrics.precision(evaluator.total_tp, evaluator.total_fp).item() if evaluator.total_tp != 0 else 0
     recall = metrics.recall(evaluator.total_tp, evaluator.total_fn).item() if evaluator.total_tp != 0 else 0
     print(30*'-')
-    print(f'total precision: {precision:.3f}')
-    print(f'total recall: {recall:.3f}\n')
+    print(f'total precision: {precision:.4f}')
+    print(f'total recall: {recall:.4f}\n')
 
     mean_precision = sum(total_precision)/len(total_precision)
     mean_recall = sum(total_recall)/len(total_recall)
     mean_dsc = sum(total_dsc)/len(total_dsc) if len(total_dsc) != 0 else 0
+    mean_iou = sum(total_iou)/len(total_iou) if len(total_iou) != 0 else 0
     if sum(total_dsc) == 0:
         std_dsc = 0
     else:
         std_dsc = [(dsc-mean_dsc)**2 for dsc in total_dsc]
         std_dsc = ((sum(std_dsc) / len(std_dsc))**0.5).item()
-    print(f'mean precision: {mean_precision:.3f}')
-    print(f'mean recall: {mean_recall:.3f}')
-    print(f'mean dsc: {mean_dsc:.3f}')
-    print(f'std dsc: {std_dsc:.3f}')
+    print(f'mean precision: {mean_precision:.4f}')
+    print(f'mean recall: {mean_recall:.4f}')
+    print(f'mean DSC: {mean_dsc:.4f}')
+    print(f'std DSC: {std_dsc:.4f}')
+    print(f'mean IoU: {mean_iou:.4f}')
 
     # TODO: write to txt or excel
 

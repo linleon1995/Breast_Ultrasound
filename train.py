@@ -8,10 +8,11 @@ import torch.nn.functional as F
 import torchvision
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from cfg import dataset_config
+# from cfg import dataset_config
 from dataset.dataloader import ImageDataset
 from model import UNet_2d
 from utils import train_utils
+from utils import configuration
 from utils import metrics
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Using device: {}'.format(device))
@@ -26,7 +27,7 @@ print('Using device: {}'.format(device))
 # PRETRAINED_MODEL_PATH = os.path.join(config.train.project_path, 'models', 'run_018')
 # CHECKPOINT = train_utils.create_training_path(os.path.join(config.train.project_path, 'models'))
 
-DEBUG = False
+# DEBUG = False
 CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2dunet_seg_train_config.yml'
 
 
@@ -68,10 +69,10 @@ class DiceLoss(nn.Module):
 
 def main():
     # if DEBUG:
-    #     config = train_utils.load_config_yaml(CONFIG_PATH)
+    #     config = configuration.load_config_yaml(CONFIG_PATH)
     # else:
-    #     config = train_utils.load_config()
-    config = train_utils.load_config(CONFIG_PATH)
+    config = configuration.load_config(CONFIG_PATH)
+    # config = train_utils.load_config(CONFIG_PATH)
     config = train_utils.DictAsMember(config)
     checkpoint_path = train_utils.create_training_path(os.path.join(config.train.project_path, 'models'))
 

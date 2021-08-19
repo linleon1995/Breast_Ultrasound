@@ -38,8 +38,14 @@ def accuracy(tp, fp, fn):
 def f1(tp, fp, fn):
     return (2 * tp) / (2 * tp + fp + fn) if tp > 0 else 0
 
+
+def iou(tp, fp, fn):
+    return tp / (tp + fp + fn) if tp > 0 else 0
+
+
 # TODO: property for all avaiable metrics
 # TODO: input output type --> numpy or tensor
+# TODO: should implement in @staticmethod
 class SegmentationMetrics():
     def __init__(self, metrics=None):
         self.total_tp = 0
@@ -48,7 +54,7 @@ class SegmentationMetrics():
         if metrics is not None:
             self.metrics = metrics
         else:
-            self.metrics = ['precision', 'recall', 'accuracy', 'f1']
+            self.metrics = ['precision', 'recall', 'accuracy', 'f1', 'iou']
         
     def __call__(self, label, pred):
         self.label = label
@@ -67,6 +73,8 @@ class SegmentationMetrics():
                 eval_result[m] = accuracy(self.tp, self.fp, self.fn)
             elif m == 'f1':
                 eval_result[m] = f1(self.tp, self.fp, self.fn)
+            elif m == 'iou':
+                eval_result[m] = iou(self.tp, self.fp, self.fn)
         return eval_result
 
     def confusion_matrix(self):

@@ -8,7 +8,7 @@ import cv2
 import matplotlib.pyplot as plt
 # import cfg
 # SHOW_PREPROCESSING = cfg.SHOW_PREPROCESSING
-SHOW_PREPROCESSING = True
+SHOW_PREPROCESSING = False
 
 def get_random_scale(min_scale_factor, max_scale_factor, step_size):
     """Gets a random scale value.

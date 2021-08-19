@@ -1,6 +1,7 @@
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# from cfg import DATA_PATH
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, datasets
@@ -9,6 +10,7 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 from dataset import preprocessing
+from dataset import dataset_utils
 
 # TODO: General solution
 def generate_filename_list(path, file_key, dir_key='', only_filename=False):
@@ -149,15 +151,22 @@ class ImageDataset(Dataset):
         self.dir_key = self.dataset_config['dir_key']
         self.file_key = self.dataset_config['file_key']
 
-        # Split training and testing dataset
-        input_data, ground_truth = generate_filename_list(self.dataset_config['data_path'], self.file_key, self.dir_key)
-        input_data.sort()
-        ground_truth.sort()
-        split = int(len(input_data)*self.data_split[0])
+        # # Split training and testing dataset
+        # input_data, ground_truth = generate_filename_list(self.dataset_config['data_path'], self.file_key, self.dir_key)
+        # input_data.sort()
+        # ground_truth.sort()
+        # split = int(len(input_data)*self.data_split[0])
+        # if mode == 'train':
+        #     self.input_data, self.ground_truth = input_data[:split], ground_truth[:split]
+        # elif mode == 'test':
+        #     self.input_data, self.ground_truth = input_data[split:], ground_truth[split:]
+
         if mode == 'train':
-            self.input_data, self.ground_truth = input_data[:split], ground_truth[:split]
+            data_path = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\dataset\index\train.txt'
         elif mode == 'test':
-            self.input_data, self.ground_truth = input_data[split:], ground_truth[split:]
+            data_path = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\dataset\index\valid.txt'
+        self.input_data = dataset_utils.load_content_from_txt(data_path)
+        self.ground_truth = [f.split('.png')[0]+'_mask.png' for f in self.input_data] 
         print("{}  Samples: {}".format(self.mode, len(self.input_data)))
 
     def __len__(self):

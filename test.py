@@ -134,43 +134,80 @@ def BU_convert_BU_mask_main():
     convert_BU_mask(load_path, save_path)
 
 
-def save_content_in_txt(content, path, access_mode='a+'):
+def BU_load_content_from_txt():
+    data_path = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\dataset\index\train.txt'
+    content = load_content_from_txt(data_path)
+    
+
+def load_content_from_txt(path, access_mode='r'):
+    with open(path, access_mode) as fw:
+        # content = fw.readlines()
+        content = fw.read().splitlines()
+    return content
+
+
+def string_filtering(s, filter):
+    filtered_s = {}
+    for f in filter:
+        if f in s:
+            filtered_s[f] = s
+    if len(filtered_s) > 0:
+        return filtered_s
+    else:
+        return None
+
+
+def save_content_in_txt(content, path, access_mode='a+', dir=None):
     assert (isinstance(content, str) or 
             isinstance(content, list) or 
             isinstance(content, tuple) or 
             isinstance(content, dict))
     # TODO: overwrite warning
     with open(path, access_mode) as fw:
+        def string_ops(s, dir, filter):
+            pair = string_filtering(s, filter)
+            return os.path.join(dir, list(pair.keys())[0], list(pair.values())[0])
+
         if isinstance(content, str):
+            if dir is not None:
+                content = string_ops(content, dir, filter=['benign', 'malignant', 'normal'])
+                # content = os.path.join(dir, content)
             fw.write(content)
         else:
             for c in content:
+                if dir is not None:
+                    c = string_ops(c, dir, filter=['benign', 'malignant', 'normal'])
+                    # c = os.path.join(dir, c)
                 fw.write(f'{c}\n')
             
-
+# TODO: General solution
 def save_split_file_name_main():
     data_split = (0.7, 0.3)
     data_path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\archive\Dataset_BUSI_with_GT'
+    for dir in ['benign', 'malignant', 'normal']:
+        input_data, ground_truth = dataloader.generate_filename_list(
+            data_path, file_key='mask', dir_key=dir, only_filename=True)
+        input_data.sort()
+        ground_truth.sort()
+        split = int(len(input_data)*data_split[0])
+        train_input_data, _ = input_data[:split], ground_truth[:split]
+        val_input_data, _ = input_data[split:], ground_truth[split:]
+        # idx = 0
+        # for tf in train_input_data:
+        #     train_input_data[idx] = tf.replace('.png', '')
+        #     idx += 1
+        # idx = 0
+        # for vf in val_input_data:
+        #     val_input_data[idx] = vf.replace('.png', '')
+        #     idx += 1
 
-    input_data, ground_truth = dataloader.generate_filename_list(
-        data_path, file_key='mask', dir_key='normal', only_filename=True)
-    input_data.sort()
-    ground_truth.sort()
-    split = int(len(input_data)*data_split[0])
-    train_input_data, _ = input_data[:split], ground_truth[:split]
-    val_input_data, _ = input_data[split:], ground_truth[split:]
-    idx = 0
-    for tf in train_input_data:
-        train_input_data[idx] = tf.replace('.png', '')
-        idx += 1
-    idx = 0
-    for vf in val_input_data:
-        val_input_data[idx] = vf.replace('.png', '')
-        idx += 1
-    train_save_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\deeplabv3+\data\myDataset\index\train_BU.txt'
-    val_save_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\deeplabv3+\data\myDataset\index\val_BU.txt'
-    save_content_in_txt(train_input_data, train_save_path, access_mode="a+")
-    save_content_in_txt(val_input_data, val_save_path, access_mode="a+")
+        # train_save_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\deeplabv3+\data\myDataset\index\train_BU.txt'
+        # val_save_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\deeplabv3+\data\myDataset\index\val_BU.txt'
+        train_save_path = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\dataset\index\train.txt'
+        val_save_path = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\dataset\index\valid.txt'
+        dir = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\archive\Dataset_BUSI_with_GT'
+        save_content_in_txt(train_input_data, train_save_path, access_mode="a+", dir=dir)
+        save_content_in_txt(val_input_data, val_save_path, access_mode="a+", dir=dir)
 
 
 def BU_modify_filename():
@@ -279,11 +316,12 @@ if __name__ == "__main__":
     # augmentation_test()
     # precision_test()
     # pred_and_label()
-    # save_split_file_name_main()
+    save_split_file_name_main()
+    # BU_load_content_from_txt()
     # BU_modify_filename()
     # BU_convert_BU_mask_main()
     # DAGM_draw_bbox_on_image()
-    BU_segmentation_label_to_detection_label()
+    # BU_segmentation_label_to_detection_label()
     # image_and_label()
     # convert_DAGM_mask_main()
 

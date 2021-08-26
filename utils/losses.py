@@ -307,6 +307,15 @@ def get_loss_criterion(config):
 
 
 #######################################################################################################################
+def get_loss(name, loss_config, weight=None, ignore_index=None):
+    if name == 'CrossEntropy':
+        return nn.CrossEntropyLoss(weight=weight, ignore_index=ignore_index)
+    elif name == 'DiceLoss':
+        normalization = loss_config.get('normalization', 'sigmoid')
+        return DiceLoss(weight=weight, normalization=normalization)
+    else:
+        raise RuntimeError(f"Unsupported loss function: '{name}'")
+
 
 def _create_loss(name, loss_config, weight, ignore_index, pos_weight):
     if name == 'BCEWithLogitsLoss':

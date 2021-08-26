@@ -15,3 +15,6 @@ def load_content_from_txt(path, access_mode='r'):
         # content = fw.readlines()
         content = fw.read().splitlines()
     return content
+
+
+# def image_loader()

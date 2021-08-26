@@ -10,6 +10,10 @@ import torch.optim as optim
 import numpy as np
 
 
+def get_optimizer(name, net, config):
+    if name == 'Adam':
+        return optim.Adam(net.parameters(), lr=config.train.learning_rate)
+
 # TODO: understand this code
 class DictAsMember(dict):
     def __getattr__(self, name):

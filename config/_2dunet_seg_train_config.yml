@@ -1,8 +1,26 @@
 device: cuda
 # model configuration
+# use a fixed random seed to guarantee that when you run the code twice you will get the same outcome
+manual_seed: 0
+# model configuration
 model:
   name: Unet2D
-
+  # model class, e.g. UNet3D, ResidualUNet3D
+  # number of input channels to the model
+  in_channels: 1
+  # number of output channels
+  out_channels: 1
+  # determines the order of operators in a single layer (gcr - GroupNorm+Conv3d+ReLU)
+  # layer_order: gcr
+  # feature maps scale factor
+  # f_maps: 32
+  # number of groups in the groupnorm
+  # num_groups: 8
+  # apply element-wise nn.Sigmoid after the final 1x1 convolution, otherwise apply nn.Softmax
+  activation: relu
+  # if True applies the final normalization layer (sigmoid or softmax), otherwise the networks returns the output from the final convolution layer; use False for regression problems, e.g. de-noising
+  # is_segmentation: true
+  output_strides: 16
 # training configuration
 train:
   batch_size: 6
@@ -19,23 +37,25 @@ train:
 # dataset configuration
 dataset:
   data_path: C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\archive\Dataset_BUSI_with_GT
+  index_path: C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\dataset\index
   # data_path: C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\Kaggle_BU_aug
   data_split: 
     - 0.7
     - 0.3
   shuffle: True
-  dir_key: "benign"
+  dir_key: ""
   file_key: mask
+  is_data_augmentation: True
   preprocess_config:
     crop_size: 
       - 512
       - 512
     PadToSquare: False
-    HorizontalFlip: False
-    RandCrop: False
+    HorizontalFlip: True
+    RandCrop: True
     RandScale: False
     ScaleToSize: False
-    ScaleLimitSize: False
+    ScaleLimitSize: True
     RandRotate: True
     GaussianBlur: True
 

@@ -2,7 +2,9 @@ device: cuda
 # model configuration
 model:
   name: Unet2D
-
+  output_strides: 16
+  in_channels: 1
+  out_channels: 3
 # training configuration
 train:
   batch_size: 1
@@ -17,6 +19,7 @@ train:
 
 # loss function configuration
 # dataset configuration
+  
 aug_samples:
   crop: True
   flip: True
@@ -25,12 +28,14 @@ aug_samples:
 
 dataset:
   data_path: C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\archive\Dataset_BUSI_with_GT
+  index_path: C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\dataset\index
   data_split: 
     - 0.7
     - 0.3
   shuffle: False
   dir_key: "benign"
   file_key: mask
+  is_data_augmentation: False
   preprocess_config:
     crop_size: 
       - 512

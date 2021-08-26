@@ -76,19 +76,19 @@ def main():
     config = train_utils.DictAsMember(config)
     checkpoint_path = train_utils.create_training_path(os.path.join(config.train.project_path, 'models'))
 
-    net = UNet_2d(input_channels=1, num_class=1)
+    net = UNet_2d(input_channels=config.model.in_channels, num_class=1)
     if torch.cuda.is_available():
         net.cuda()
     # TODO: Select optimizer by config file
     optimizer = optim.Adam(net.parameters(), lr=config.train.learning_rate)
 
     # Dataloader
-    train_dataset = ImageDataset(config.dataset, mode='train')
+    train_dataset = ImageDataset(config, mode='train')
     train_dataloader = DataLoader(train_dataset, batch_size=config.train.batch_size, shuffle=config.dataset.shuffle)
 
     test_dataset_config = config.dataset.copy()
     test_dataset_config.pop('preprocess_config')
-    test_dataset = ImageDataset(test_dataset_config, mode='test')
+    test_dataset = ImageDataset(config, mode='test')
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
     

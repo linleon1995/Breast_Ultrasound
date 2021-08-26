@@ -2,6 +2,7 @@
 import os
 import argparse
 import numpy as np
+import cv2
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
@@ -17,13 +18,14 @@ from utils import train_utils
 from utils import metrics
 from utils import configuration
 MODE = 'test'
-MODEL = 'run_032'
+MODEL = 'run_040'
 CHECKPOINT_NAME = 'ckpt_best.pth'
 PROJECT_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound'
 CHECKPOINT = os.path.join(PROJECT_PATH, 'models', MODEL)
 EVAL_DIR_KEY = ''
 SHOW_IMAGE = False
 SAVE_IMAGE = False
+SAVE_PREDICTION = False
 DATA_AUGMENTATION = False
 # TODO: solve device problem, check behavoir while GPU using
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -34,12 +36,11 @@ def eval():
     # dataset
     # config = cfg.dataset_config
     config = configuration.load_config(CONFIG_PATH)
-    config = train_utils.DictAsMember(config)
-    dataset_config = config.dataset
+    dataset_config = config['dataset']
     dataset_config['dir_key'] = EVAL_DIR_KEY
-    test_dataset = ImageDataset(dataset_config, mode=MODE)
     if not DATA_AUGMENTATION:
         dataset_config.pop('preprocess_config')
+    test_dataset = ImageDataset(config, mode=MODE)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
     # model
@@ -73,7 +74,21 @@ def eval():
         # total_tp += tp
         # total_fp += fp
         # total_fn += fn
-
+        # TODO: original image size prediction
+        image_code = i + 1
+        image_code = test_dataset.input_data[i].split('\\')[-1]
+        def temporal_mask_process(mask):
+            zero_label = np.zeros_like(mask)
+            new_mask = np.concatenate(
+                [zero_label[...,np.newaxis], zero_label[...,np.newaxis], 128*mask[...,np.newaxis]], axis=2)
+            path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\deeplabv3+\data\myDataset\exp\segmentation_results_valid_20000\result_masks'
+            helping_mask = cv2.imread(os.path.join(path, image_code))
+            test_H, test_W = helping_mask.shape[:2]
+            new_mask = new_mask[:test_H, :test_W]
+            return new_mask
+        np_label = labels.cpu()[0,0].detach().numpy()
+        x = temporal_mask_process(prediction.cpu()[0,0].detach().numpy())
+        # print(np_label.shape)
         # TODO: if EVAL_DIR_KEY = ''
         if not os.path.exists(os.path.join(CHECKPOINT, 'images', EVAL_DIR_KEY)):
             os.makedirs(os.path.join(CHECKPOINT, 'images', EVAL_DIR_KEY))
@@ -81,20 +96,25 @@ def eval():
         if SAVE_IMAGE or SHOW_IMAGE:
             fig, (ax1, ax2, ax3) = plt.subplots(1,3, figsize=(6, 2))
             ax1.imshow(inputs.cpu()[0,0].detach().numpy(), 'gray')
-            ax2.imshow(labels.cpu()[0,0].detach().numpy(), 'gray')
+            ax2.imshow(np_label, 'gray')
             ax3.imshow(prediction.cpu()[0,0].detach().numpy(), 'gray')
         if SAVE_IMAGE:
-            image_code = i + 1
+            # image_code = i + 1
+            # image_code = test_dataset.input_data[i].split('\\')[-1]
             fig.savefig(os.path.join(
-                CHECKPOINT, 'images', EVAL_DIR_KEY, f'{EVAL_DIR_KEY}_{MODE}_{image_code:04d}.png'))
+                CHECKPOINT, 'images', EVAL_DIR_KEY, f'{EVAL_DIR_KEY}_{MODE}_{image_code}.png'))
             plt.close(fig)
+        if SAVE_PREDICTION:
+            cv2.imwrite(
+                os.path.join(CHECKPOINT, 'images', EVAL_DIR_KEY, f'{image_code}'), x)
         if SHOW_IMAGE:
             plt.show()
     # print(tp, evaluator.total_tp, total_tp)
-
+    # TODO: grid in plot
     precision = metrics.precision(evaluator.total_tp, evaluator.total_fp).item() if evaluator.total_tp != 0 else 0
     recall = metrics.recall(evaluator.total_tp, evaluator.total_fn).item() if evaluator.total_tp != 0 else 0
     print(30*'-')
+    print(f'TP:{evaluator.total_tp} FP:{evaluator.total_fp} FN:{evaluator.total_fn} TN:{evaluator.total_tn}')
     print(f'total precision: {precision:.4f}')
     print(f'total recall: {recall:.4f}\n')
 

@@ -10,6 +10,50 @@ import matplotlib.pyplot as plt
 # SHOW_PREPROCESSING = cfg.SHOW_PREPROCESSING
 SHOW_PREPROCESSING = False
 
+
+
+class Standardize:
+    """
+    Apply Z-score normalization to a given input tensor, i.e. re-scaling the values to be 0-mean and 1-std.
+    """
+
+    def __init__(self, eps=1e-10, mean=None, std=None, channelwise=False, **kwargs):
+        if mean is not None or std is not None:
+            assert mean is not None and std is not None
+        self.mean = mean
+        self.std = std
+        self.eps = eps
+        self.channelwise = channelwise
+
+    def __call__(self, m):
+        if self.mean is not None:
+            mean, std = self.mean, self.std
+        else:
+            if self.channelwise:
+                # normalize per-channel
+                axes = list(range(m.ndim))
+                # average across channels
+                axes = tuple(axes[1:])
+                mean = np.mean(m, axis=axes, keepdims=True)
+                std = np.std(m, axis=axes, keepdims=True)
+            else:
+                mean = np.mean(m)
+                std = np.std(m)
+
+        return (m - mean) / np.clip(std, a_min=self.eps, a_max=None)
+
+        
+def output_strides_align(input_image, output_strides, gt_image=None):
+    H = input_image.shape[0]
+    W = input_image.shape[1]
+    top, left = (output_strides-H%output_strides)//2, (output_strides-W%output_strides)//2
+    bottom, right = (output_strides-H%output_strides)-top, (output_strides-W%output_strides)-left
+    input_image = cv2.copyMakeBorder(input_image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0.0)
+    if gt_image is not None:
+        gt_image = cv2.copyMakeBorder(gt_image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0.0)
+    return input_image, gt_image
+
+
 def get_random_scale(min_scale_factor, max_scale_factor, step_size):
     """Gets a random scale value.
     Args:
@@ -50,16 +94,17 @@ def rand_rotate(image, label=None, min_angle=0, max_angle=0, center=None, scale=
     else:
         angle = np.random.uniform(min_angle, max_angle)
     M = cv2.getRotationMatrix2D(center, angle, scale)
-    rotated_image = cv2.warpAffine(image, M, (w, h), borderValue)
-    rotated_label = cv2.warpAffine(label, M, (w, h), borderValue)
-    return (rotated_image, rotated_label)
+    image = cv2.warpAffine(image, M, (w, h), borderValue)
+    if label is not None:
+        label = cv2.warpAffine(label, M, (w, h), borderValue)
+    return (image, label)
 
 def gaussian_blur(image, label=None, kernel_size=(7,7)):
     assert (isinstance(kernel_size, tuple) or isinstance(kernel_size, list))
-    blur_image = cv2.GaussianBlur(image, kernel_size, 0)
+    image = cv2.GaussianBlur(image, kernel_size, 0)
     if label is not None:
-        blur_label = cv2.GaussianBlur(label, kernel_size, 0)
-    return (blur_image, blur_label)
+        label = cv2.GaussianBlur(label, kernel_size, 0)
+    return (image, label)
 
 def rand_flip(image, label=None, flip_prob=0.5):
     randnum = np.random.uniform(0.0, 1.0)
@@ -69,14 +114,15 @@ def rand_flip(image, label=None, flip_prob=0.5):
             label = cv2.flip(label, 1)
     return (image, label)
 
-def show_data_information(image, label, method=None):
+def show_data_information(image, label=None, method=None):
     if method is not None:
         print(f'method: {method}')
     print(f'    Image (value) max={np.max(image)} min={np.min(image)}  (shape) {image.shape}')
     print(f'    Label (value) max={np.max(image)} min={np.min(image)}  (shape) {image.shape}')
     _, (ax1, ax2) = plt.subplots(1,2)
-    ax1.imshow(image, 'gray')
-    ax2.imshow(label, 'gray')
+    ax1.imshow(np.uint8(image), 'gray')
+    if label is not None:
+        ax2.imshow(np.uint8(label), 'gray')
     plt.show()
 
 def HU_to_pixelvalue():
@@ -206,6 +252,7 @@ class DataPreprocessing():
             if SHOW_PREPROCESSING: 
                 show_data_information(image, label, 'random crop')
 
-        image = np.expand_dims(image, 2)
-        label = np.expand_dims(label, 2)
+        # image = np.expand_dims(image, 2)
+        # if label is not None:
+        #     label = np.expand_dims(label, 2)
         return (image, label)

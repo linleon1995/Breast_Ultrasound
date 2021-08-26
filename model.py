@@ -13,23 +13,6 @@ DoubleConv = layers.DoubleConv
 #  TODO: upsampling align_corner
 # TODO: general solution
 
-class Torchvision_backbone(nn.Module):
-    def __init__(self, backbone, pretrained=True):
-        super(Torchvision_backbone, self).__init__()
-        self.pretrained = pretrained
-        if backbone == 'vgg16':
-            self.model = models.vgg16(pretrained=self.pretrained)
-        elif backbone == 'resnet50':
-            self.model = models.resnet50(pretrained=self.pretrained)
-        elif backbone == 'resnext50':
-            self.model = models.resnext50_32x4d(pretrained=self.pretrained)
-        elif backbone == 'wide_resnet':
-            self.model = models.wide_resnet50_2(pretrained=self.pretrained)
-        else:
-            raise ValueError('Undefined Backbone Name.')
-       
-    def forward(self, x):
-        return self.model(x)
 
 
 class Decoder(nn.Module):
@@ -145,21 +128,43 @@ class NoUpsampling(AbstractUpsampling):
 def get_activation(name, *args, **kwargs):
     if name == 'relu':
         return nn.ReLU(inplace=True, *args, **kwargs)
+    elif name == 'softmax':
+        return nn.Softmax(*args, **kwargs)
+
+class Torchvision_backbone(nn.Module):
+    def __init__(self, backbone, pretrained=True):
+        super(Torchvision_backbone, self).__init__()
+        self.pretrained = pretrained
+        if backbone == 'vgg16':
+            self.model = models.vgg16(pretrained=self.pretrained)
+        elif backbone == 'resnet50':
+            self.model = models.resnet50(pretrained=self.pretrained)
+            # self.model.conv1 = torch.nn.Conv1d(1, 64, (7, 7), (2, 2), (3, 3), bias=False)
+        elif backbone == 'resnext50':
+            self.model = models.resnext50_32x4d(pretrained=self.pretrained)
+        elif backbone == 'wide_resnet':
+            self.model = models.wide_resnet50_2(pretrained=self.pretrained)
+        else:
+            raise ValueError('Undefined Backbone Name.')
+       
+    def forward(self, x):
+        return self.model(x)
 
 
 class ImageClassifier(nn.Module):
-    def __init__(self, name, in_channels, out_channels, activation='relu', bsckbone='resnet50', pretrained=True):
+    def __init__(self, in_channels, out_channels, activation=None, bsckbone='resnet50', pretrained=True, *args, **kwargs):
         super(ImageClassifier, self).__init__()
         self.out_channels = out_channels
         self.encoder = Torchvision_backbone(bsckbone, pretrained=pretrained)
         # TODO: dynamic change node number
         self.fc1 = nn.Linear(1000, out_channels)
-        self.activation_func = get_activation(activation)
+        self.activation_func = get_activation(activation, *args, **kwargs) if activation is not None else None
         
     def forward(self, x):
         x = self.encoder(x)
         x = self.fc1(x)
-        x = self.activation_func(x)
+        if self.activation_func is not None:
+            x = self.activation_func(x)
         return x
 
 
@@ -249,7 +254,9 @@ def get_model(model_config):
 
 if __name__ == "__main__":
     # print(Torchvision_backbone('resnet50'))
-    
-    print(ImageClassifier(name='test', num_class=3))
+    net = ImageClassifier(
+        backbone='resnext50', in_channels=3, activation=None,
+        out_channels=3, pretrained=True, dim=1)
+    print(net)
     # print(UNet_2d(num_class=2))
     # num_class, pool_kernel_size=2, stages=5, root_channel=32, bilinear=True

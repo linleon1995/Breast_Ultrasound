@@ -1,5 +1,6 @@
 from numpy.lib.arraysetops import isin
 from numpy.lib.type_check import _imag_dispatcher
+from sklearn import metrics
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,24 +10,25 @@ import matplotlib.pyplot as plt
 import argparse
 from model import UNet_2d
 from torch.utils.data import Dataset, DataLoader
-from dataset.dataloader import ImageDataset, data_analysis
+from dataset.dataloader import ImageDataset, ClassificationImageDataset, data_analysis
 from dataset.preprocessing import DataPreprocessing
 import numpy as np
-from cfg import dataset_config
+# from cfg import dataset_config
 from dataset import dataloader
-from utils import train_utils
+from utils import train_utils, metrics
 import cv2
 import os
+from utils import configuration
+CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2dunet_cls_train_config.yml'
 
-
-def dataset_test():
-    train_dataset = ImageDataset(dataset_config, mode='train')
-    train_dataloader = DataLoader(train_dataset, batch_size=3, shuffle=True)
-    for i, data in enumerate(train_dataloader):
-        fig, (ax1, ax2) = plt.subplots(1,2)
-        ax1.imshow(data['input'][0,0])
-        ax2.imshow(data['gt'][0,0])
-        plt.show()
+# def dataset_test():
+#     train_dataset = ImageDataset(dataset_config, mode='train')
+#     train_dataloader = DataLoader(train_dataset, batch_size=3, shuffle=True)
+#     for i, data in enumerate(train_dataloader):
+#         fig, (ax1, ax2) = plt.subplots(1,2)
+#         ax1.imshow(data['input'][0,0])
+#         ax2.imshow(data['gt'][0,0])
+#         plt.show()
 
 def augmentation_test():
     
@@ -240,25 +242,74 @@ def get_range_of_mask(segmentation, key_value, gap=10):
     return mask_range
 
 
+def BU_detection_label_to_segmentation_label():
+    data_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\YOLO\Release\yolo_main\v4\results'
+    save_path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\yolo_BU_detection'
+    os.chdir(data_path)
+    data_list = [f for f in os.listdir(data_path) if 'txt' in f]
+    for f in data_list:
+        print(f)
+        # Get the image size and create background
+        img_name = f.replace('txt', 'jpg')
+        img = cv2.imread(img_name)
+        h, w = img.shape[:2]
+        mask = np.zeros((h, w))
+
+        # Get bounding box
+        with open(f, 'r') as fw:
+            detection = fw.readlines()
+            for d in detection:
+                num_detection = d.split(' ')[1:]
+                num_detection = [float(c) for c in num_detection]
+                bbox_x, bbox_y, bbox_w, bbox_h = num_detection
+
+                # Produce mask
+                start = (int(h*(bbox_y-bbox_h/2)), int(w*(bbox_x-bbox_w/2)))
+                end = (int(h*(bbox_y+bbox_h/2)), int(w*(bbox_x+bbox_w/2))) 
+                
+                mask[start[0]:end[0], start[1]:end[1]] = 1
+                # print(mask.shape)
+                # plt.imshow(img)
+                # plt.imshow(mask, 'gray', alpha=0.5)
+                # plt.show()
+
+        # # Save mask
+        cv2.imwrite(os.path.join(save_path, img_name.replace('.jpg', '_bbox_mask.png')), mask)
+
 def BU_segmentation_label_to_detection_label():
-    data_path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\Kaggle_BU_original\benign'
-    save_path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\Kaggle_BU_detection'
+    data_path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\Kaggle_BU_original\malignant'
+    save_path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\Kaggle_BU_detection\malignant'
 
     os.chdir(data_path)
     for f in os.listdir(data_path):
         # Load segmentation
         mask = cv2.imread(f)
         img_height, img_width = mask.shape[:2]
-
+        print(f)
         # Convert
         mask_range = get_range_of_mask(mask[...,2], key_value=255)
 
         # Save detection
         if mask_range is not None:
             x_min, x_max, y_min, y_max = mask_range
-            mask_range = [0.0, ((x_min+x_max)/2)/img_width, ((y_min+y_max)/2)/img_height, (x_max-x_min)/img_width, (y_max-y_min)/img_height]
-        
-        draw_bbox_on_image(mask_range, mask)
+            # convert to [center_x, center_y, ]
+            mask_range = [((x_min+x_max)/2)/img_width, ((y_min+y_max)/2)/img_height, 
+                           (x_max-x_min)/img_width, (y_max-y_min)/img_height]
+        def save_detection_label():
+            filename = f.replace('_mask.png', '')+'.txt'
+            with open(os.path.join(save_path, filename), 'w+') as fw:
+                if mask_range is not None:
+                    fw.write('1 ')
+                    for r in mask_range:
+                        fw.write(f'{r:.6f} ')
+        save_detection_label()
+
+    # Redeaw bounding-box on image
+    draw_bbox_on_image(mask_range, mask)
+
+
+
+
 
 def DAGM_draw_bbox_on_image():
     # TODO: Handle multiple targets
@@ -279,12 +330,75 @@ def DAGM_draw_bbox_on_image():
 def draw_bbox_on_image(bbox, image):
     img_height, img_width = image.shape[:2]
     if bbox is not None:
-        bbox_c, bbox_x, bbox_y, bbox_w, bbox_h = bbox
+        bbox_x, bbox_y, bbox_w, bbox_h = bbox
         start = (int(img_width*(bbox_x-bbox_w/2)), int(img_height*(bbox_y-bbox_h/2)))
         end = (int(img_width*(bbox_x+bbox_w/2)), int(img_height*(bbox_y+bbox_h/2)))
         cv2.rectangle(image, start, end, (0, 255, 0), 2)
     plt.imshow(image)
     plt.show()
+
+
+def BU_cls_dataloader_main():
+    config = configuration.load_config(CONFIG_PATH)
+    train_dataset = ClassificationImageDataset(config, mode='train')
+    train_dataloader = DataLoader(train_dataset, batch_size=config.train.batch_size, shuffle=config.dataset.shuffle)
+    for i, data in enumerate(train_dataloader):
+        inputs, labels = data['input'], data['gt']
+        y = F.one_hot(labels, num_classes=3)
+        target = torch.FloatTensor(10).uniform_(0, 120).long()
+        print(target.size())
+        print(labels[0], y[0])
+        print(inputs.size(), y.size())
+        plt.imshow(inputs[0,0], 'gray')
+        plt.show()
+
+
+def test_new_eval_main():
+    evaluator = metrics.SegmentationMetrics(['precision', 'recall'])
+    target = np.array([[0,1,2],[0,1,2]])
+    pred = np.array([[0,1,1],[0,1,2]])
+    target = np.reshape(target, [-1])
+    pred = np.reshape(pred, [-1])
+    # print(target.shape, )
+    evals = evaluator(label=target, pred=pred)
+    print(evals)
+    
+
+# TODO: filtering mode for keyword, remove or add
+def save_aLL_files_name(path, keyword=None):
+    files = os.listdir(path)
+    # files.sort()
+    with open(os.path.join(path, 'file_names.txt'), 'w+') as fw:
+        for f in files:
+            if keyword is not None:
+                if keyword not in f:
+                    fullpath = os.path.join(path, f)
+                    fw.write(fullpath)    
+                    fw.write('\n')
+            else:
+                fullpath = os.path.join(path, f)
+                fw.write(fullpath)    
+                fw.write('\n')
+
+            
+def BU_save_name_main():
+    path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\YOLO\DataSet\BU\JPEGImages'
+    path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\archive\Dataset_BUSI_with_GT\benign'
+    save_aLL_files_name(path, keyword='mask')
+
+
+def image_read_and_show(path):
+    image = cv2.imread(path)
+    plt.imshow(image*128)
+    plt.show()
+    return image
+
+
+def BU_image_read_and_show():
+    path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\Kaggle_BU_convert_mask\benign\benign (100)_bbox_mask.png'
+    path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\yolo_BU_detection\pred\benign (264)_bbox_mask.jpg'
+    image = image_read_and_show(path)
+    print(image.shape)
 
 
 # def path_test():
@@ -312,11 +426,11 @@ def draw_bbox_on_image(bbox, image):
     # print(data)
     
 if __name__ == "__main__":
-    
+    # test_new_eval_main()
     # augmentation_test()
     # precision_test()
     # pred_and_label()
-    save_split_file_name_main()
+    # save_split_file_name_main()
     # BU_load_content_from_txt()
     # BU_modify_filename()
     # BU_convert_BU_mask_main()
@@ -324,4 +438,8 @@ if __name__ == "__main__":
     # BU_segmentation_label_to_detection_label()
     # image_and_label()
     # convert_DAGM_mask_main()
-
+    # BU_cls_dataloader_main()
+    # BU_save_name_main()
+    BU_detection_label_to_segmentation_label()
+    # BU_image_read_and_show()
+    pass

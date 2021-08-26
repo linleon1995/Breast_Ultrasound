@@ -11,6 +11,7 @@ import cv2
 import matplotlib.pyplot as plt
 from dataset import preprocessing
 from dataset import dataset_utils
+from utils import configuration
 
 # TODO: General solution
 def generate_filename_list(path, file_key, dir_key='', only_filename=False):
@@ -116,7 +117,7 @@ def generate_augment_samples(path, aug_config, dataset_config, mode):
                         crop_dict['left_bot'] = image[(height-crop_size):, :crop_size]
                     crop_dict = list(crop_dict.values())
                     return crop_dict
-                # TODO: use dict instead of list
+
                 cropped_image.extend(crop5(image))
                 cropped_label.extend(crop5(label))
                     
@@ -134,98 +135,86 @@ def generate_augment_samples(path, aug_config, dataset_config, mode):
         # plt.imshow(label_list[-1], 'gray')
         # plt.show()
         
-
-# TODO: test execute time between generate path list and load local file
-# TODO: imread for RGB, Gray?
+# TODO: Write in inherit form
+# TODO: interence mode (no gt exist)
+# TODO: dir_key to select benign or malignant
 class ImageDataset(Dataset):
-    def __init__(self, dataset_config, mode):
-        data_split = dataset_config['data_split']
-        assert isinstance(data_split, list)
-        assert isinstance(data_split[0], float)
-        assert isinstance(data_split[1], float)
-        assert data_split[0] + data_split[1] == 1
-        self.data_split = data_split
-        self.mode = mode
-        self.transform = transforms.Compose([transforms.ToTensor()])
-        self.dataset_config = dataset_config
-        self.dir_key = self.dataset_config['dir_key']
-        self.file_key = self.dataset_config['file_key']
-
-        # # Split training and testing dataset
-        # input_data, ground_truth = generate_filename_list(self.dataset_config['data_path'], self.file_key, self.dir_key)
-        # input_data.sort()
-        # ground_truth.sort()
-        # split = int(len(input_data)*self.data_split[0])
-        # if mode == 'train':
-        #     self.input_data, self.ground_truth = input_data[:split], ground_truth[:split]
-        # elif mode == 'test':
-        #     self.input_data, self.ground_truth = input_data[split:], ground_truth[split:]
-
+    def __init__(self, config, mode):
         if mode == 'train':
-            data_path = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\dataset\index\train.txt'
+            dataset_config = config.dataset.train
         elif mode == 'test':
-            data_path = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\dataset\index\valid.txt'
+            dataset_config = config.dataset.val
+        model_config = config.model
+        data_split = config.dataset['data_split']
+        assert (isinstance(data_split, list) or isinstance(data_split, tuple))
+        assert data_split[0] + data_split[1] == 1
+        self.model_config = model_config
+        self.mode = mode
+        self.dataset_config = dataset_config
+        self.transform = transforms.Compose([transforms.ToTensor()])
+
+        # if mode == 'train':
+        #     data_path = os.path.join(dataset_config.index_path, 'train.txt')
+        # elif mode == 'test':
+        #     data_path = os.path.join(dataset_config.index_path, 'valid.txt')
+        data_path = os.path.join(config.dataset.index_path, f'{mode}.txt')
         self.input_data = dataset_utils.load_content_from_txt(data_path)
+        self.input_data.sort()
         self.ground_truth = [f.split('.png')[0]+'_mask.png' for f in self.input_data] 
-        print("{}  Samples: {}".format(self.mode, len(self.input_data)))
+        print(f"{self.mode}  Samples: {len(self.input_data)}")
 
     def __len__(self):
         return len(self.input_data)
 
     def __getitem__(self, idx):
         # Load images
+        # TODO: General solution for image loading problem RGB vs Gray, [H,W,C] vs [H,W]
         input_image = cv2.imread(self.input_data[idx])[...,0:1]
         gt_image = cv2.imread(self.ground_truth[idx])[...,0:1]
-
-        # TODO: params: pooling_size
+        # input_image = cv2.imread(self.input_data[idx])
+        # gt_image = cv2.imread(self.ground_truth[idx])
+        
         # Data preprocessing
-        pooling_size = 16
-        H = input_image.shape[0]
-        W = input_image.shape[1]
-        top, left = (pooling_size-H%pooling_size)//2, (pooling_size-W%pooling_size)//2
-        bottom, right = (pooling_size-H%pooling_size)-top, (pooling_size-W%pooling_size)-left
-        input_image = cv2.copyMakeBorder(input_image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0.0)
-        if gt_image is not None:
-            gt_image = cv2.copyMakeBorder(gt_image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=0.0)
-
-        if 'preprocess_config' in self.dataset_config:
+        # TODO: merge output_strides_align to DataPreprocessing
+        output_strides = self.model_config.output_strides
+        input_image, gt_image = preprocessing.output_strides_align(input_image, output_strides, gt_image)
+        if self.dataset_config.is_data_augmentation:
             preprocessor = preprocessing.DataPreprocessing(self.dataset_config['preprocess_config'])
             input_image, gt_image = preprocessor(input_image, gt_image)
             
-        # TODO: remove judgement after do experiment
-        # print(input_image.dtype, gt_image.dtype)
-        # normalization = True
-        # if normalization:
-        #     input_image = preprocessing.z_score_normalize(input_image)
-        #     if gt_image is not None:
-        #         gt_image = preprocessing.z_score_normalize(gt_image)
-        # print(input_image.dtype, gt_image.dtype)
-
         # Transform to Torch tensor
         input_image = self.transform(input_image)
         gt_image = self.transform(gt_image)
-
-
         return {'input': input_image, 'gt': gt_image}
   
 
-if __name__ == "__main__":
-    datapath = "C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\archive\\Dataset_BUSI_with_GT"
-    # data_analysis(datapath)
-    # input_data, ground_truth = generate_filename_list(datapath, file_key, dir_key)
-    # input_data.sort()
-    # ground_truth.sort()
-    # print(input_data)
-    # # data_preprocessing(datapath, file_key, dir_key)
-    # train_dataset = ImageDataset(datapath, train='train', data_split=(0.7,0.3), crop_size=256)
-    # train_dataloader = DataLoader(train_dataset, batch_size=2, shuffle=True)
-    # data = next(iter(train_dataloader))
-    # # print(data['gt'].shape)
-    # for index, data in enumerate(train_dataloader):
-    #     fig, (ax1, ax2) = plt.subplots(1,2)
-    #     ax1.imshow(data['input'][0,0])
-    #     ax2.imshow(data['gt'][0,0])
-    #     plt.show()
-    
   
-  
+class ClassificationImageDataset(ImageDataset):
+    def __init__(self, config, mode):
+        super().__init__(config, mode)
+        # dataset_config, model_config = config.dataset, config.model
+        self.ground_truth = []
+        for f in self.input_data:
+            if 'benign' in f:
+                self.ground_truth.append(0)
+            if 'malignant' in f:
+                self.ground_truth.append(1)
+            if 'normal' in f:
+                self.ground_truth.append(2)
+
+    def __getitem__(self, idx):
+        # Load images
+        # input_image = cv2.imread(self.input_data[idx])[...,0:1]
+        input_image = cv2.imread(self.input_data[idx])
+        gt = self.ground_truth[idx]
+
+        # Data preprocessing
+        output_strides = self.model_config.output_strides
+        input_image, _ = preprocessing.output_strides_align(input_image, output_strides)
+        if self.dataset_config.is_data_augmentation:
+            preprocessor = preprocessing.DataPreprocessing(self.dataset_config['preprocess_config'])
+            input_image, _ = preprocessor(input_image)
+
+        # Transform to Torch tensor
+        input_image = self.transform(input_image)
+        return {'input': input_image, 'gt': gt}

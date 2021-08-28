@@ -41,9 +41,10 @@ def main():
 
     checkpoint_path = train_utils.create_training_path(os.path.join(config.train.project_path, 'models'))
     # TODO: selective pretrained
+    # TODO: dynamic output structure
     net = ImageClassifier(
         backbone=config.model.name, in_channels=config.model.in_channels, activation=config.model.activation,
-        out_channels=config.model.out_channels, pretrained=config.model.pretrained, dim=1)
+        out_channels=config.model.out_channels, pretrained=config.model.pretrained, dim=1, output_structure=None)
     if torch.cuda.is_available():
         net.cuda()
     optimizer = optim.Adam(net.parameters(), lr=config.train.learning_rate)
@@ -54,9 +55,6 @@ def main():
     train_dataset = ClassificationImageDataset(config, mode='train')
     train_dataloader = DataLoader(
         train_dataset, batch_size=config.dataset.train.batch_size, shuffle=config.dataset.train.shuffle)
-    # config['dataset'].pop('preprocess_config')
-    # test_dataset_config = config.dataset.copy()
-    # test_dataset_config.pop('preprocess_config')
     test_dataset = ClassificationImageDataset(config, mode='test')
     test_dataloader = DataLoader(
         test_dataset, batch_size=config.dataset.val.batch_size, shuffle=config.dataset.val.shuffle)
@@ -180,6 +178,7 @@ def main():
             ax.set_ylabel('loss')
             ax.set_title('Losses')
             ax.legend()
+            ax.grid()
             plt.savefig(os.path.join(checkpoint_path, f'{experiment}_loss.png'))
 
             _, ax = plt.subplots()
@@ -188,6 +187,7 @@ def main():
             ax.set_ylabel('accuracy')
             ax.set_title('Testing Accuracy')
             ax.legend()
+            ax.grid()
             plt.savefig(os.path.join(checkpoint_path, f'{experiment}_accuracy.png'))
         print(60*"=")    
 

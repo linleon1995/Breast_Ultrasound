@@ -9,6 +9,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 import argparse
 from model import UNet_2d
+from model import ImageClassifier
 from torch.utils.data import Dataset, DataLoader
 from dataset.dataloader import ImageDataset, ClassificationImageDataset, data_analysis
 from dataset.preprocessing import DataPreprocessing
@@ -401,6 +402,16 @@ def BU_image_read_and_show():
     print(image.shape)
 
 
+def test_model_main():
+    for b in ['resnet18', 'resnet50', 'resnext50', 'wide_resnet']:
+        for in_c in [1, 3]:
+            for p in [True, False]:
+                net = ImageClassifier(
+                    backbone=b, in_channels=in_c, activation='sigmoid',
+                    out_channels=3, pretrained=p, dim=1, output_structure=[100, 100])
+                print(net)
+
+    
 # def path_test():
     # datapath = "C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\archive\\Dataset_BUSI_with_GT"
     # data_analysis(datapath)
@@ -440,6 +451,7 @@ if __name__ == "__main__":
     # convert_DAGM_mask_main()
     # BU_cls_dataloader_main()
     # BU_save_name_main()
-    BU_detection_label_to_segmentation_label()
+    # BU_detection_label_to_segmentation_label()
+    test_model_main()
     # BU_image_read_and_show()
     pass

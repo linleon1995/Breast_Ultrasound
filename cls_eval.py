@@ -68,7 +68,6 @@ def plot_confusion_matrix(cm, classes,
 # TODO: batch size cannot be like training mode (14 vs 4)
 def eval():
     config = configuration.load_config(CONFIG_PATH)
-    config = train_utils.DictAsMember(config)
     dataset_config = config['dataset']
     dataset_config['dir_key'] = EVAL_DIR_KEY
     test_dataset = ClassificationImageDataset(config, mode=config.eval.running_mode)
@@ -79,8 +78,8 @@ def eval():
 
     # model
     net = ImageClassifier(
-        name=config.model.name, in_channels=config.model.in_channels, activation=None,
-        out_channels=config.model.out_channels, pretrained=False, dim=1)
+        backbone=config.model.name, in_channels=config.model.in_channels, activation=config.model.activation,
+        out_channels=config.model.out_channels, pretrained=False, dim=1, output_structure=None)
     checkpoint = os.path.join(config.eval.restore_checkpoint_path, config.eval.checkpoint_name)
     state_key = torch.load(checkpoint, map_location=device)
     net.load_state_dict(state_key['net'])

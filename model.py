@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torchvision import models
 import layers
 import collections
+import logging
 
 Conv_Bn_Activation = layers.Conv_Bn_Activation
 DoubleConv = layers.DoubleConv
@@ -128,18 +129,21 @@ class NoUpsampling(AbstractUpsampling):
 def get_activation(name, *args, **kwargs):
     if name == 'relu':
         return nn.ReLU(inplace=True, *args, **kwargs)
+    elif name == 'sigmoid':
+        return nn.Sigmoid()
     elif name == 'softmax':
         return nn.Softmax(*args, **kwargs)
 
 class Torchvision_backbone(nn.Module):
-    def __init__(self, backbone, pretrained=True):
+    def __init__(self, in_channels, backbone, pretrained=True):
         super(Torchvision_backbone, self).__init__()
         self.pretrained = pretrained
         if backbone == 'vgg16':
             self.model = models.vgg16(pretrained=self.pretrained)
+        elif backbone == 'resnet18':
+            self.model = models.resnet18(pretrained=self.pretrained)
         elif backbone == 'resnet50':
             self.model = models.resnet50(pretrained=self.pretrained)
-            # self.model.conv1 = torch.nn.Conv1d(1, 64, (7, 7), (2, 2), (3, 3), bias=False)
         elif backbone == 'resnext50':
             self.model = models.resnext50_32x4d(pretrained=self.pretrained)
         elif backbone == 'wide_resnet':
@@ -147,24 +151,89 @@ class Torchvision_backbone(nn.Module):
         else:
             raise ValueError('Undefined Backbone Name.')
        
+        # TODO: only work on resnet not vgg
+        if in_channels != 3:
+            conv1_in_c = self.model.conv1.in_channels
+            conv1_out_c = self.model.conv1.out_channels
+            conv1_ks = self.model.conv1.kernel_size
+            conv1_stride = self.model.conv1.stride
+            conv1_padding = self.model.conv1.padding
+            self.model.conv1 = torch.nn.Conv1d(
+                conv1_in_c, conv1_out_c, conv1_ks, conv1_stride, conv1_padding, bias=False)
+
     def forward(self, x):
         return self.model(x)
 
 
+class MultiLayerPerceptron(nn.Module):
+    def __init__(self, structure, activation=None, out_activation=None, *args, **kwargs):
+        super(MultiLayerPerceptron, self).__init__()
+        self.mlp = torch.nn.Sequential()
+        self.activation = activation
+        self.out_activation = out_activation
+        assert isinstance(structure, (list, tuple)), 'Model structure "structure" should be list or tuple'
+        assert len(structure) > 1, 'The length of structure should be at least 2 to define linear layer'
+
+        for idx in range(len(structure)-1):
+            in_channels, out_channels = structure[idx], structure[idx+1]
+            self.mlp.add_module(f"fc{idx+1}", torch.nn.Linear(in_channels, out_channels))
+            if self.activation is not None and idx+1 < len(structure)-1:
+                self.mlp.add_module(f"{self.activation}{idx+1}", get_activation(self.activation))
+
+        if self.out_activation is not None:
+            out_dix = idx + 2 if self.out_activation == self.activation else 1
+            self.mlp.add_module(f"{self.out_activation}{out_dix}", get_activation(self.out_activation))
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        x = self.mlp(x)
+        return x
+
+
 class ImageClassifier(nn.Module):
-    def __init__(self, in_channels, out_channels, activation=None, bsckbone='resnet50', pretrained=True, *args, **kwargs):
+    def __init__(self, in_channels, out_channels, output_structure=None, activation=None, backbone='resnet50', 
+                 pretrained=True, *args, **kwargs):
         super(ImageClassifier, self).__init__()
         self.out_channels = out_channels
-        self.encoder = Torchvision_backbone(bsckbone, pretrained=pretrained)
-        # TODO: dynamic change node number
-        self.fc1 = nn.Linear(1000, out_channels)
-        self.activation_func = get_activation(activation, *args, **kwargs) if activation is not None else None
+        self.output_structure = output_structure
+        if in_channels != 3 and pretrained:
+            logging.info('Reinitialized first layer')
+        self.encoder = Torchvision_backbone(in_channels, backbone, pretrained=pretrained)
+        # TODO: Define output sturcture outside this class
+        module = list(self.encoder.children())[0]
+        encoder_out_node = list(module.children())[-1].out_features
+        if output_structure is not None:
+            output_structure = [encoder_out_node] + output_structure + [out_channels]
+            self.mlp = MultiLayerPerceptron(output_structure, 'relu', out_activation=activation)
+        else:
+            self.mlp = MultiLayerPerceptron([encoder_out_node, out_channels], 'relu', out_activation=activation)
+
+        # self.fc1 = nn.Linear(out_node, out_channels)
+        # self.activation_func = get_activation(activation, *args, **kwargs) if activation is not None else None
         
     def forward(self, x):
         x = self.encoder(x)
-        x = self.fc1(x)
-        if self.activation_func is not None:
-            x = self.activation_func(x)
+        x = self.mlp(x)
+        # x = self.fc1(x)
+        # if self.activation_func is not None:
+        #     x = self.activation_func(x)
+        return x
+
+
+class UNet_2d_backbone(nn.Module):
+    def __init__(self, in_channels, out_channels, backbone='resnet50', pretrained=True):
+        super(UNet_2d_backbone, self).__init__()
+        self.out_channels = out_channels
+        if in_channels != 3 and pretrained:
+            logging.info('Reinitialized first layer')
+        self.encoder = Torchvision_backbone(in_channels, backbone, pretrained=pretrained)
+        self.decoder = Decoder(out_channels, upsampling_module)
+        # self.bilinear = bilinear
+        self.name = '2d_unet'
+
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
         return x
 
 
@@ -198,6 +267,8 @@ class UNet_2d(nn.Module):
         self.classifier = Conv_Bn_Activation(in_channels=root_channel, out_channels=num_class, activation=None)
 
     def forward(self, x):
+        # TODO: dynamic
+        align_corner = False
         low_level = []
         x = self.conv1(x)
         low_level.append(x)
@@ -217,22 +288,22 @@ class UNet_2d(nn.Module):
 
         x = self.intermedia(x)
         tensor_size = list(x.size())
-        x = F.interpolate(x, size=(tensor_size[2]*2, tensor_size[3]*2), mode='bilinear')
+        x = F.interpolate(x, size=(tensor_size[2]*2, tensor_size[3]*2), mode='bilinear', align_corners=align_corner)
 
         x = torch.cat([x, low_level.pop()],1)
         x = self.conv5(x)
         tensor_size = list(x.size())
-        x = F.interpolate(x, size=(tensor_size[2]*2, tensor_size[3]*2), mode='bilinear')
+        x = F.interpolate(x, size=(tensor_size[2]*2, tensor_size[3]*2), mode='bilinear', align_corners=align_corner)
         
         x = torch.cat([x, low_level.pop()],1)
         x = self.conv6(x)
         tensor_size = list(x.size())
-        x = F.interpolate(x, size=(tensor_size[2]*2, tensor_size[3]*2), mode='bilinear')
+        x = F.interpolate(x, size=(tensor_size[2]*2, tensor_size[3]*2), mode='bilinear', align_corners=align_corner)
 
         x = torch.cat([x, low_level.pop()],1)
         x = self.conv7(x)
         tensor_size = list(x.size())
-        x = F.interpolate(x, size=(tensor_size[2]*2, tensor_size[3]*2), mode='bilinear')
+        x = F.interpolate(x, size=(tensor_size[2]*2, tensor_size[3]*2), mode='bilinear', align_corners=align_corner)
 
         x = torch.cat([x, low_level.pop()],1)
         x = self.conv8(x)

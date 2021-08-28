@@ -58,6 +58,24 @@ def accuracy(tp, fp, fn):
     return tp / denominator
 
 
+def f1(tp, fp, fn):
+    denominator = (2 * tp + fp + fn)
+    denominator = np.where(
+        denominator > 0,
+        denominator,
+        np.ones_like(denominator))
+    return 2 * tp / denominator
+
+
+def iou(tp, fp, fn):
+    denominator = (tp + fp + fn)
+    denominator = np.where(
+        denominator > 0,
+        denominator,
+        np.ones_like(denominator))
+    return tp / denominator
+
+
 # def precision(tp, fp):
 #     return (tp) / (tp + fp) if tp > 0 else 0
 
@@ -68,12 +86,12 @@ def accuracy(tp, fp, fn):
 #     return (2 * tp) / (2 * tp + fp + fn) if tp > 0 else 0
 
 
-def f1(tp, fp, fn):
-    return (2 * tp) / (2 * tp + fp + fn) if tp > 0 else 0
+# def f1(tp, fp, fn):
+#     return (2 * tp) / (2 * tp + fp + fn) if tp > 0 else 0
 
 
-def iou(tp, fp, fn):
-    return tp / (tp + fp + fn) if tp > 0 else 0
+# def iou(tp, fp, fn):
+#     return tp / (tp + fp + fn) if tp > 0 else 0
 
 
 # TODO: property for all avaiable metrics
@@ -121,7 +139,19 @@ class SegmentationMetrics():
         return eval_result
 
     def confusion_matrix(self):
-        cm = confusion_matrix(self.label, self.pred, labels=np.arange(0,self.num_class))
+        num_class = self.num_class if self.num_class > 1 else self.num_class + 1
+        # print(self.label.max(), self.label.min())
+        # print(self.pred.max(), self.pred.min())
+        # import matplotlib.pyplot as plt
+        # plt.imshow(self.pred)
+        # plt.show()
+        # plt.imshow(self.label)
+        # plt.show()
+        self.label = np.reshape(self.label, [-1])
+        self.pred = np.reshape(self.pred, [-1])
+        # print(self.label.shape, self.pred.shape)
+        # self.pred = np.int32(self.pred)
+        cm = confusion_matrix(self.label, self.pred, labels=np.arange(0, num_class))
         tp = np.diagonal(cm)
         fp = np.sum(cm, axis=0) - tp
         fn = np.sum(cm, axis=1) - tp

@@ -134,9 +134,14 @@ def generate_augment_samples(path, aug_config, dataset_config, mode):
             j += 1
         # plt.imshow(label_list[-1], 'gray')
         # plt.show()
-        
+
+
+def convert_value(image):
+    return np.int32(image//255)
+
+
 # TODO: Write in inherit form
-# TODO: interence mode (no gt exist)
+# TODO: inference mode (no gt exist)
 # TODO: dir_key to select benign or malignant
 class ImageDataset(Dataset):
     def __init__(self, config, mode):
@@ -168,16 +173,18 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, idx):
         # Load images
-        # TODO: General solution for image loading problem RGB vs Gray, [H,W,C] vs [H,W]
-        input_image = cv2.imread(self.input_data[idx])[...,0:1]
-        gt_image = cv2.imread(self.ground_truth[idx])[...,0:1]
-        # input_image = cv2.imread(self.input_data[idx])
-        # gt_image = cv2.imread(self.ground_truth[idx])
+        self.original_image = cv2.imread(self.input_data[idx])[...,0:self.model_config.in_channels]
+        # TODO: convert in right way
+        self.original_label = convert_value(cv2.imread(self.ground_truth[idx])[...,0:self.model_config.in_channels])
         
+        # input_image, gt_image = preprocessing.resize_to_range(self.orignal_image, self.orignal_label)
+        # input_image, gt_image = preprocessing.pad_to_bounding_box(input_image, gt_image)
+
         # Data preprocessing
         # TODO: merge output_strides_align to DataPreprocessing
         output_strides = self.model_config.output_strides
-        input_image, gt_image = preprocessing.output_strides_align(input_image, output_strides, gt_image)
+        input_image, gt_image = preprocessing.output_strides_align(self.original_image, output_strides, self.original_label)
+
         if self.dataset_config.is_data_augmentation:
             preprocessor = preprocessing.DataPreprocessing(self.dataset_config['preprocess_config'])
             input_image, gt_image = preprocessor(input_image, gt_image)

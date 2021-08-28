@@ -16,36 +16,9 @@ from utils import configuration
 from utils import metrics
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Using device: {}'.format(device))
-
-# EPOCH = 300
-# BATCH_SIZE = 6
-# SHUFFLE = True
-# config.train.project_path = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound'
-# DATAPATH = os.path.join(config.train.project_path, rf'archive\Dataset_BUSI_with_GT')
-# LEARNING_RATE = 1e-2
-# SAVING_STEPS = 50
-# PRETRAINED_MODEL_PATH = os.path.join(config.train.project_path, 'models', 'run_018')
-# CHECKPOINT = train_utils.create_training_path(os.path.join(config.train.project_path, 'models'))
-
-# DEBUG = False
 CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2dunet_seg_train_config.yml'
 
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument('--epoch', type=int, default=EPOCH,
-#                     help='Model training epoch.')
-
-# parser.add_argument('--batch_size', type=int, default=BATCH_SIZE,
-#                     help='Training batch size.')
-
-# parser.add_argument('--shuffle', type=bool, default=SHUFFLE,
-#                     help='The flag of shuffling input data.')
-
-# parser.add_argument('--datapath', type=str, default=DATAPATH,
-#                     help='')
-
-# parser.add_argument('--checkpoint_path', type=str, default=CHECKPOINT,
-#                     help='')
 
 # TODO: Iprove the visualization of training process
 # TODO: tensorboard
@@ -68,15 +41,11 @@ class DiceLoss(nn.Module):
 		return loss
 
 def main():
-    # if DEBUG:
-    #     config = configuration.load_config_yaml(CONFIG_PATH)
-    # else:
     config = configuration.load_config(CONFIG_PATH)
-    # config = train_utils.load_config(CONFIG_PATH)
     config = train_utils.DictAsMember(config)
     checkpoint_path = train_utils.create_training_path(os.path.join(config.train.project_path, 'models'))
 
-    net = UNet_2d(input_channels=config.model.in_channels, num_class=1)
+    net = UNet_2d(input_channels=config.model.in_channels, num_class=config.model.out_channels)
     if torch.cuda.is_available():
         net.cuda()
     # TODO: Select optimizer by config file
@@ -84,15 +53,16 @@ def main():
 
     # Dataloader
     train_dataset = ImageDataset(config, mode='train')
-    train_dataloader = DataLoader(train_dataset, batch_size=config.train.batch_size, shuffle=config.dataset.shuffle)
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=config.dataset.train.batch_size, shuffle=config.dataset.train.shuffle)
 
-    test_dataset_config = config.dataset.copy()
-    test_dataset_config.pop('preprocess_config')
+    # test_dataset_config = config.dataset.copy()
+    # test_dataset_config.pop('preprocess_config')
     test_dataset = ImageDataset(config, mode='test')
-    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=config.dataset.val.batch_size, shuffle=config.dataset.val.shuffle)
 
     
-    # TODO: training parameter to cfg.py
     # TODO: modify vars name
 
     # Start training
@@ -125,12 +95,11 @@ def main():
     config['experiment'] = experiment
     train_utils.train_logging(os.path.join(config.train.project_path, 'models', 'train_logging.txt'), config)
     
-    eval_tool = metrics.SegmentationMetrics(['f1'])
+    eval_tool = metrics.SegmentationMetrics(num_class=config.model.out_channels, metrics=['f1'])
     for epoch in range(1, config.train.epoch+1):
         total_loss = 0.0
         for i, data in enumerate(train_dataloader):
             net.train()
-            # print('Epoch: {}/{}  Step: {}'.format(epoch, config.train.epoch, i))
             inputs, labels = data['input'], data['gt']
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
@@ -150,20 +119,15 @@ def main():
         print(f'**Epoch {epoch}/{config.train.epoch}  Training Loss {total_train_loss[-1]}')
         with torch.no_grad():
             net.eval()
-            # loss_list = []
             test_loss, test_acc = 0.0, []
             steps_for_testing_acc = 0
             for _, data in enumerate(test_dataloader):
                 inputs, labels = data['input'], data['gt']
                 inputs, labels = inputs.to(device), labels.to(device)
-                outputs = net(inputs)
-                test_loss += DiceLoss()(outputs, labels)
-                # loss_list.append(test_loss)
+                logits = net(inputs)
+                test_loss += DiceLoss()(logits, labels)
 
-                prediction = torch.round(outputs)
-                # if not (prediction.sum() == 0 and labels.sum() == 0):
-                #     test_acc += eval_tool(labels, prediction)['f1']
-                #     steps_for_testing_acc += 1
+                prediction = torch.round(logits)
                 evals = eval_tool(labels, prediction)
                 tp, fp, fn = eval_tool.tp, eval_tool.fp, eval_tool.fn
                 if (2*tp + fp + fn) != 0:
@@ -189,27 +153,12 @@ def main():
                 checkpoint_name = 'ckpt_best_{:04d}.pth'.format(epoch)
                 torch.save(checkpoint, os.path.join(checkpoint_path, checkpoint_name))
 
-            # if avg_test_loss < min_loss:
-            #     min_loss = avg_test_loss
-            #     print("Saving best model with testing loss {:.3f}".format(min_loss))
-            #     checkpoint_name = 'ckpt_best.pth'
-            #     torch.save(checkpoint, os.path.join(checkpoint_path, checkpoint_name))
-                
             if avg_test_acc > max_acc:
                 max_acc = avg_test_acc
                 print("Saving best model with testing accuracy {:.3f}".format(max_acc))
                 checkpoint_name = 'ckpt_best.pth'
                 torch.save(checkpoint, os.path.join(checkpoint_path, checkpoint_name))
 
-        # if epoch%10 == 0:
-            # plt.plot(list(range(1,len(total_train_loss)+1)), total_train_loss)
-            # plt.plot(list(range(1,len(total_train_loss)+1)), total_test_loss)
-            # plt.legend(['train', 'test'])
-            # plt.xlabel('epoch')
-            # plt.ylabel('loss')
-            # plt.title('Losses')
-            # plt.savefig(os.path.join(checkpoint_path, 'training_loss.png'))
-            # # plt.show()
         if epoch%10 == 0:
             _, ax = plt.subplots()
             ax.plot(list(range(1,len(total_train_loss)+1)), total_train_loss, 'C1', label='train')
@@ -218,6 +167,7 @@ def main():
             ax.set_ylabel('loss')
             ax.set_title('Losses')
             ax.legend()
+            ax.grid()
             plt.savefig(os.path.join(checkpoint_path, f'{experiment}_loss.png'))
 
             _, ax = plt.subplots()
@@ -226,9 +176,9 @@ def main():
             ax.set_ylabel('accuracy')
             ax.set_title('Testing Accuracy')
             ax.legend()
+            ax.grid()
             plt.savefig(os.path.join(checkpoint_path, f'{experiment}_accuracy.png'))
         print(60*"=")    
 
 if __name__ == "__main__":
-    # FLAGS, _ = parser.parse_known_args()
     main()

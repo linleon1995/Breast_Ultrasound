@@ -3,6 +3,8 @@ from functools import partial
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from core import utils
+
 # TODO: Complete resnetblock
 # TODO: add layer name
 
@@ -229,37 +231,6 @@ class Conv_Bn_Activation(nn.Module):
 
     def forward(self, x):
         return self.conv_bn_activation(x)
-
-
-def create_decoders(f_maps, basic_module, conv_kernel_size, conv_padding, layer_order, num_groups, upsample, conv_type):
-    # create decoder path consisting of the Decoder modules. The length of the decoder list is equal to `len(f_maps) - 1`
-    decoders = []
-    reversed_f_maps = list(reversed(f_maps))
-    for i in range(len(reversed_f_maps) - 1):
-        if basic_module == DoubleConv:
-            in_feature_num = reversed_f_maps[i] + reversed_f_maps[i + 1]
-        else:
-            in_feature_num = reversed_f_maps[i]
-
-        out_feature_num = reversed_f_maps[i + 1]
-
-        # TODO: if non-standard pooling was used, make sure to use correct striding for transpose conv
-        # currently strides with a constant stride: (2, 2, 2)
-
-        _upsample = True
-        if i == 0:
-            # upsampling can be skipped only for the 1st decoder, afterwards it should always be present
-            _upsample = upsample
-
-        decoder = Decoder(in_feature_num, out_feature_num, conv_type,
-                          basic_module=basic_module,
-                          conv_layer_order=layer_order,
-                          conv_kernel_size=conv_kernel_size,
-                          num_groups=num_groups,
-                          padding=conv_padding,
-                          upsample=_upsample)
-        decoders.append(decoder)
-    return nn.ModuleList(decoders)
 
 
 def conv3d(in_channels, out_channels, kernel_size, bias, padding):

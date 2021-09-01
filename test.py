@@ -467,6 +467,39 @@ def Timm_main():
     print(m)
     
 
+def contrast_enhance_main():
+    #-----Reading the image-----------------------------------------------------
+    img = cv2.imread(rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\archive\Dataset_BUSI_with_GT\benign\benign (416).png', 1)
+    plt.imshow(img, 'gray')
+    plt.show()
+
+    #-----Converting image to LAB Color model----------------------------------- 
+    lab= cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    plt.imshow(lab)
+    plt.show()
+
+    #-----Splitting the LAB image to different channels-------------------------
+    l, a, b = cv2.split(lab)
+    plt.imshow(l)
+    plt.show()    
+    plt.imshow(a)
+    plt.show()
+    plt.imshow(b)
+    plt.show()
+    #-----Applying CLAHE to L-channel-------------------------------------------
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    cl = clahe.apply(l)
+    plt.imshow(cl)
+    plt.show()
+    #-----Merge the CLAHE enhanced L-channel with the a and b channel-----------
+    limg = cv2.merge((cl,a,b))
+    plt.imshow(limg, 'gray')
+    plt.show()
+    #-----Converting image from LAB Color model to RGB model--------------------
+    final = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+    plt.imshow(final, 'gray')
+    plt.show()
+    #_____END_____#
 
 # def path_test():
     # datapath = "C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\archive\\Dataset_BUSI_with_GT"
@@ -512,4 +545,5 @@ if __name__ == "__main__":
     # BU_image_read_and_show()
     # dsc_for_deeplab_main()
     Timm_main()
+    # contrast_enhance_main()
     pass

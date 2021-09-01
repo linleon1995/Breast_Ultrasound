@@ -162,7 +162,7 @@ class ImageClassifier(nn.Module):
         return x
 
 class UNet_2d_backbone(nn.Module):
-    def __init__(self, in_channels, out_channels, basic_module, f_maps=64, layer_order='gcr',
+    def __init__(self, in_channels, out_channels, basic_module, f_maps=64, layer_order='bcr',
                  num_groups=8, num_levels=4, is_segmentation=True, testing=False,
                  conv_kernel_size=3, pool_kernel_size=2, conv_padding=1, backbone='resnet50', pretrained=True, **kwargs):
         super(UNet_2d_backbone, self).__init__()
@@ -181,9 +181,10 @@ class UNet_2d_backbone(nn.Module):
         
         # create decoder path
         self.decoder = layers.create_decoders(f_maps, basic_module, conv_kernel_size, conv_padding, layer_order, 
-                                              num_groups, upsample=True)
+                                              num_groups, upsample=True, conv_type='2d')
 
         self.classifier = Conv_Bn_Activation(in_channels=f_maps[0], out_channels=self.out_channels, activation=None)
+        self.classifier = layers.SingleConv(in_channels, out_channels, conv_type='2d', kernel_size=3, order='bc')
 
     def forward(self, x):
         # encoder part

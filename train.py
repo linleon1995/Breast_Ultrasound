@@ -1,3 +1,4 @@
+from layers import DoubleConv
 import os
 import argparse
 import matplotlib.pyplot as plt
@@ -10,11 +11,16 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 # from cfg import dataset_config
 from dataset.dataloader import ImageDataset
-from model import UNet_2d, UNet_2d_backbone
-from layers import DoubleConv
+from core.unet import unet_2d
+from core import layers
+# from layers import DoubleConv
 from utils import train_utils
 from utils import configuration
 from utils import metrics
+UNet_2d = unet_2d.UNet_2d
+UNet_2d_backbone = unet_2d.UNet_2d_backbone
+DoubleConv = layers.DoubleConv
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Using device: {}'.format(device))
 CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2dunet_seg_train_config.yml'
@@ -48,7 +54,8 @@ def main():
 
     # net = UNet_2d(input_channels=config.model.in_channels, num_class=config.model.out_channels)
     # TODO: dynamic
-    f_maps = [64, 256, 512, 1024, 2048]
+    f_maps = [32, 32, 64, 128, 256]
+    # f_maps = [64, 256, 512, 1024, 2048]
     net = UNet_2d_backbone(
         in_channels=config.model.in_channels, out_channels=config.model.out_channels, f_maps=f_maps, basic_module=DoubleConv)
     print(net)

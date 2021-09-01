@@ -11,138 +11,195 @@ import matplotlib.pyplot as plt
 SHOW_PREPROCESSING = False
 
 
-
+# TODO: Understand the code
 def resize_to_range(image,
                     label=None,
                     min_size=None,
                     max_size=None,
                     factor=None,
-                    align_corners=True,
                     label_layout_is_chw=False,
-                    scope=None,
                     method=cv2.INTER_LINEAR):
-  """Resizes image or label so their sides are within the provided range.
+    """Resizes image or label so their sides are within the provided range.
 
-  The output size can be described by two cases:
-  1. If the image can be rescaled so its minimum size is equal to min_size
-     without the other side exceeding max_size, then do so.
-  2. Otherwise, resize so the largest side is equal to max_size.
+    The output size can be described by two cases:
+    1. If the image can be rescaled so its minimum size is equal to min_size
+        without the other side exceeding max_size, then do so.
+    2. Otherwise, resize so the largest side is equal to max_size.
 
-  An integer in `range(factor)` is added to the computed sides so that the
-  final dimensions are multiples of `factor` plus one.
+    An integer in `range(factor)` is added to the computed sides so that the
+    final dimensions are multiples of `factor` plus one.
 
-  Args:
-    image: A 3D tensor of shape [height, width, channels].
-    label: (optional) A 3D tensor of shape [height, width, channels] (default)
-      or [channels, height, width] when label_layout_is_chw = True.
-    min_size: (scalar) desired size of the smaller image side.
-    max_size: (scalar) maximum allowed size of the larger image side. Note
-      that the output dimension is no larger than max_size and may be slightly
-      smaller than min_size when factor is not None.
-    factor: Make output size multiple of factor plus one.
-    align_corners: If True, exactly align all 4 corners of input and output.
-    label_layout_is_chw: If true, the label has shape [channel, height, width].
-      We support this case because for some instance segmentation dataset, the
-      instance segmentation is saved as [num_instances, height, width].
-    scope: Optional name scope.
-    method: Image resize method. Defaults to tf.image.ResizeMethod.BILINEAR.
+    Args:
+        image: A 3D tensor of shape [height, width, channels].
+        label: (optional) A 3D tensor of shape [height, width, channels] (default)
+        or [channels, height, width] when label_layout_is_chw = True.
+        min_size: (scalar) desired size of the smaller image side.
+        max_size: (scalar) maximum allowed size of the larger image side. Note
+        that the output dimension is no larger than max_size and may be slightly
+        smaller than min_size when factor is not None.
+        factor: Make output size multiple of factor plus one.
+        align_corners: If True, exactly align all 4 corners of input and output.
+        label_layout_is_chw: If true, the label has shape [channel, height, width].
+        We support this case because for some instance segmentation dataset, the
+        instance segmentation is saved as [num_instances, height, width].
+        scope: Optional name scope.
+        method: Image resize method. Defaults to tf.image.ResizeMethod.BILINEAR.
 
-  Returns:
-    A 3-D tensor of shape [new_height, new_width, channels], where the image
-    has been resized (with the specified method) so that
-    min(new_height, new_width) == ceil(min_size) or
-    max(new_height, new_width) == ceil(max_size).
+    Returns:
+        A 3-D tensor of shape [new_height, new_width, channels], where the image
+        has been resized (with the specified method) so that
+        min(new_height, new_width) == ceil(min_size) or
+        max(new_height, new_width) == ceil(max_size).
 
-  Raises:
-    ValueError: If the image is not a 3D tensor.
-  """
-  with tf.name_scope(scope, 'resize_to_range', [image]):
+    Raises:
+        ValueError: If the image is not a 3D tensor.
+    """
     new_tensor_list = []
-    min_size = tf.to_float(min_size)
+    min_size = float(min_size)
     if max_size is not None:
-      max_size = tf.to_float(max_size)
-      # Modify the max_size to be a multiple of factor plus 1 and make sure the
-      # max dimension after resizing is no larger than max_size.
-      if factor is not None:
-        max_size = (max_size + (factor - (max_size - 1) % factor) % factor
-                    - factor)
+        max_size = float(max_size)
+        # Modify the max_size to be a multiple of factor plus 1 and make sure the
+        # max dimension after resizing is no larger than max_size.
+        if factor is not None:
+            max_size = (max_size + (factor - (max_size - 1) % factor) % factor
+                        - factor)
 
-    [orig_height, orig_width, _] = resolve_shape(image, rank=3)
-    orig_height = tf.to_float(orig_height)
-    orig_width = tf.to_float(orig_width)
-    orig_min_size = tf.minimum(orig_height, orig_width)
+    [orig_height, orig_width, _] = image.shape
+    orig_height = float(orig_height)
+    orig_width = float(orig_width)
+    orig_min_size = min(orig_height, orig_width)
 
     # Calculate the larger of the possible sizes
     large_scale_factor = min_size / orig_min_size
-    large_height = tf.to_int32(tf.ceil(orig_height * large_scale_factor))
-    large_width = tf.to_int32(tf.ceil(orig_width * large_scale_factor))
-    large_size = tf.stack([large_height, large_width])
-
+    large_height = int(orig_height * large_scale_factor) + 1
+    large_width = int(orig_width * large_scale_factor) + 1
+    large_size = np.stack([large_width, large_height])
+    
     new_size = large_size
     if max_size is not None:
-      # Calculate the smaller of the possible sizes, use that if the larger
-      # is too big.
-      orig_max_size = tf.maximum(orig_height, orig_width)
-      small_scale_factor = max_size / orig_max_size
-      small_height = tf.to_int32(tf.ceil(orig_height * small_scale_factor))
-      small_width = tf.to_int32(tf.ceil(orig_width * small_scale_factor))
-      small_size = tf.stack([small_height, small_width])
-      new_size = tf.cond(
-          tf.to_float(tf.reduce_max(large_size)) > max_size,
-          lambda: small_size,
-          lambda: large_size)
+        # Calculate the smaller of the possible sizes, use that if the larger
+        # is too big.
+        orig_max_size = max(orig_height, orig_width)
+        small_scale_factor = max_size / orig_max_size
+        small_height = int(orig_height * small_scale_factor) + 1
+        small_width = int(orig_width * small_scale_factor) + 1
+        small_size = np.stack([small_width, small_height])
+        new_size = small_size if float(np.max(large_size)) > max_size else large_size
+        # new_size = np.cond(
+        #     float(np.max(large_size)) > max_size,
+        #     lambda: small_size,
+        #     lambda: large_size)
     # Ensure that both output sides are multiples of factor plus one.
     if factor is not None:
-      new_size += (factor - (new_size - 1) % factor) % factor
-    new_tensor_list.append(tf.image.resize_images(
-        image, new_size, method=method, align_corners=align_corners))
+        new_size += (factor - (new_size - 1) % factor) % factor
+    image = cv2.resize(image, (new_size[0], new_size[1]), interpolation=method)
+    if len(image.shape)==2: image = image[...,np.newaxis]
+    new_tensor_list.append(image)
+    # new_tensor_list.append(tf.image.resize_images(
+    #     image, new_size, method=method, align_corners=align_corners))
     if label is not None:
-      if label_layout_is_chw:
-        # Input label has shape [channel, height, width].
-        resized_label = tf.expand_dims(label, 3)
-        resized_label = tf.image.resize_nearest_neighbor(
-            resized_label, new_size, align_corners=align_corners)
-        resized_label = tf.squeeze(resized_label, 3)
-      else:
-        # Input label has shape [height, width, channel].
-        resized_label = tf.image.resize_images(
-            label, new_size, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR,
-            align_corners=align_corners)
-      new_tensor_list.append(resized_label)
-    else:
-      new_tensor_list.append(None)
-    return new_tensor_list
-    
-
-class Standardize:
-    """
-    Apply Z-score normalization to a given input tensor, i.e. re-scaling the values to be 0-mean and 1-std.
-    """
-
-    def __init__(self, eps=1e-10, mean=None, std=None, channelwise=False, **kwargs):
-        if mean is not None or std is not None:
-            assert mean is not None and std is not None
-        self.mean = mean
-        self.std = std
-        self.eps = eps
-        self.channelwise = channelwise
-
-    def __call__(self, m):
-        if self.mean is not None:
-            mean, std = self.mean, self.std
+        if label_layout_is_chw:
+            # Input label has shape [channel, height, width].
+            resized_label = np.expand_dims(label, 3)
+            resized_label = cv2.resize(resized_label, (new_size[0], new_size[1]), interpolation=cv2.INTER_NEAREST)
+            # resized_label = tf.image.resize_nearest_neighbor(
+            #     resized_label, new_size, align_corners=align_corners)
+            resized_label = np.squeeze(resized_label, 3)
         else:
-            if self.channelwise:
-                # normalize per-channel
-                axes = list(range(m.ndim))
-                # average across channels
-                axes = tuple(axes[1:])
-                mean = np.mean(m, axis=axes, keepdims=True)
-                std = np.std(m, axis=axes, keepdims=True)
-            else:
-                mean = np.mean(m)
-                std = np.std(m)
+            # Input label has shape [height, width, channel].
+            resized_label = cv2.resize(label, (new_size[0], new_size[1]), interpolation=cv2.INTER_NEAREST)
+            # resized_label = tf.image.resize_images(
+            #     label, new_size, method=cv2.INTER_NEARST,
+            #     align_corners=align_corners)
+        if len(resized_label.shape)==2: resized_label = resized_label[...,np.newaxis]
+        new_tensor_list.append(resized_label)
+    else:
+        new_tensor_list.append(None)
+    return new_tensor_list
 
-        return (m - mean) / np.clip(std, a_min=self.eps, a_max=None)
+
+def pad_to_bounding_box(image, offset_height, offset_width, target_height, target_width, pad_value):
+    """Pads the given image with the given pad_value.
+
+    Works like tf.image.pad_to_bounding_box, except it can pad the image
+    with any given arbitrary pad value and also handle images whose sizes are not
+    known during graph construction.
+
+    Args:
+        image: 3-D tensor with shape [height, width, channels]
+        offset_height: Number of rows of zeros to add on top.
+        offset_width: Number of columns of zeros to add on the left.
+        target_height: Height of output image.
+        target_width: Width of output image.
+        pad_value: Value to pad the image tensor with.
+
+    Returns:
+        3-D tensor of shape [target_height, target_width, channels].
+
+    Raises:
+        ValueError: If the shape of image is incompatible with the offset_* or
+        target_* arguments.
+    """
+    image_rank = len(image.shape)
+    image_shape = np.shape(image)
+    height, width = image_shape[0], image_shape[1]
+    assert image_rank == 3, 'Wrong image tensor rank, expected 3'
+    assert target_width >= width, 'target_width must be >= width'
+    assert target_height >= height, 'target_height must be >= height'
+    after_padding_width = target_width - offset_width - width
+    after_padding_height = target_height - offset_height - height
+    assert (after_padding_width >= 0 and after_padding_height >= 0), \
+        'target size not possible with the given target offsets'
+
+    paddings = (after_padding_height, 0, after_padding_width, 0)
+    padded = cv2.copyMakeBorder(image, *paddings, cv2.BORDER_CONSTANT, value=pad_value)
+    return padded
+
+
+def standardize(m, mean=None, std=None, eps=1e-10, channelwise=False, *kwargs):
+    if mean is None:
+        if channelwise:
+            # normalize per-channel
+            axes = list(range(m.ndim))
+            # average across channels
+            axes = tuple(axes[1:])
+            mean = np.mean(m, axis=axes, keepdims=True)
+            std = np.std(m, axis=axes, keepdims=True)
+        else:
+            mean = np.mean(m)
+            std = np.std(m)
+    return (m - mean) / np.clip(std, a_min=eps, a_max=None)
+
+
+# class Standardize:
+#     """
+#     Apply Z-score normalization to a given input tensor, i.e. re-scaling the values to be 0-mean and 1-std.
+#     """
+
+#     def __init__(self, eps=1e-10, mean=None, std=None, channelwise=False, **kwargs):
+#         if mean is not None or std is not None:
+#             assert mean is not None and std is not None
+#         self.mean = mean
+#         self.std = std
+#         self.eps = eps
+#         self.channelwise = channelwise
+
+#     def __call__(self, m):
+#         if self.mean is not None:
+#             mean, std = self.mean, self.std
+#         else:
+#             if self.channelwise:
+#                 # normalize per-channel
+#                 axes = list(range(m.ndim))
+#                 # average across channels
+#                 axes = tuple(axes[1:])
+#                 mean = np.mean(m, axis=axes, keepdims=True)
+#                 std = np.std(m, axis=axes, keepdims=True)
+#             else:
+#                 mean = np.mean(m)
+#                 std = np.std(m)
+
+#         return (m - mean) / np.clip(std, a_min=self.eps, a_max=None)
 
 
 def output_strides_align(input_image, output_strides, gt_image=None):
@@ -244,25 +301,115 @@ class DataPreprocessing():
         self.RandFlip = preprocess_config['HorizontalFlip']
         self.RandCrop = preprocess_config['RandCrop']
         self.RandScale = preprocess_config['RandScale']
-        self.PadToSquare = preprocess_config['PadToSquare']
-        self.ScaleToSize = preprocess_config['ScaleToSize']
-        self.ScaleLimitSize = preprocess_config['ScaleLimitSize']
+        # self.PadToSquare = preprocess_config['PadToSquare']
+        # self.ScaleToSize = preprocess_config['ScaleToSize']
+        # self.ScaleLimitSize = preprocess_config['ScaleLimitSize']
         self.RandRotate = preprocess_config['RandRotate']
         self.GaussianBlur = preprocess_config['GaussianBlur']
 
-        self.padding_height = preprocess_config['padding_height']
-        self.padding_width = preprocess_config['padding_width']
+        # self.padding_height = preprocess_config['padding_height']
+        # self.padding_width = preprocess_config['padding_width']
         self.padding_value = preprocess_config['padding_value']
         self.flip_prob = preprocess_config['flip_prob']
         self.min_scale_factor = preprocess_config['min_scale_factor']
         self.max_scale_factor = preprocess_config['max_scale_factor']
         self.step_size = preprocess_config['step_size']
-        # TODO: 
-        self.resize_method = cv2.INTER_LINEAR if preprocess_config['resize_method'] == 'Bilinear' else None
+        assert (preprocess_config['resize_method'] == 'Bilinear' or preprocess_config['resize_method'] == 'Cubic')
+        self.resize_method = cv2.INTER_LINEAR if preprocess_config['resize_method'] == 'Bilinear' else cv2.INTER_CUBIC
         self.crop_size = preprocess_config['crop_size']
-        self.scale_size = preprocess_config['scale_size']
+        # self.scale_size = preprocess_config['scale_size']
         self.min_angle = preprocess_config['min_angle']
         self.max_angle = preprocess_config['max_angle']
+
+    # def __call__(self, image, label=None):
+    #     self.original_image = image
+    #     self.original_label = label
+    #     H = image.shape[0]
+    #     W = image.shape[1]
+    #     Hs, Ws = H, W
+    #     image = np.squeeze(image)
+    #     if label is not None:
+    #         label = np.squeeze(label)
+    #     # TODO: try decorator for conditional show
+    #     if SHOW_PREPROCESSING: 
+    #         show_data_information(image, label, method='origin')
+
+    #     #  TODO: if immput is 190X400 will this distortion affect result?
+        
+    #     if self.ScaleLimitSize:
+    #         scale_ratio = (self.crop_size[0]+1) / min(H, W)
+    #         if scale_ratio > 1.0:
+    #             Hs, Ws = int(H*scale_ratio), int(W*scale_ratio)
+    #             image = cv2.resize(image, (Ws,Hs), interpolation=self.resize_method)
+    #             if label is not None:
+    #                 label = cv2.resize(label, (Ws,Hs), interpolation=cv2.INTER_NEAREST)
+    #         if SHOW_PREPROCESSING:
+    #             show_data_information(image, label, 'scale limit size')
+
+    #     # if self.PadToSquare:
+    #     #     # TODO: pad to square, params
+    #     #     pad_size = max(Hs, Ws)
+    #     #     self.padding_height, self.padding_width = pad_size, pad_size
+
+    #     #     if Hs < self.padding_height:
+    #     #         top = (self.padding_height - Hs)//2
+    #     #         bottom = self.padding_height - top - Hs
+    #     #     else:
+    #     #         top, bottom = 0, 0
+    #     #     if Ws < self.padding_width:
+    #     #         left = (self.padding_width - Ws)//2
+    #     #         right = self.padding_width - left - Ws
+    #     #     else:
+    #     #         left, right = 0, 0
+    #     #     image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=self.padding_value)
+    #     #     if label is not None:
+    #     #         label = cv2.copyMakeBorder(label, top, bottom, left, right, cv2.BORDER_CONSTANT, value=self.padding_value)
+    #     #     Hs, Ws = image.shape[0], image.shape[1]
+    #     #     if SHOW_PREPROCESSING: 
+    #     #         show_data_information(image, label, 'pad to square')
+    #     #         print('    padding', top, bottom, left, right)
+
+    #     if self.RandFlip:
+    #         image, label = rand_flip(image, label, flip_prob=self.flip_prob)
+    #         if SHOW_PREPROCESSING: 
+    #             show_data_information(image, label, 'random flip')
+
+    #     # if self.ScaleToSize:
+    #     #     Hs, Ws = self.scale_size[0], self.scale_size[1]
+    #     #     image = cv2.resize(image, (Hs, Ws), interpolation=self.resize_method)
+    #     #     if label is not None:
+    #     #         label = cv2.resize(label, (Hs, Ws), interpolation=cv2.INTER_NEAREST)
+    #     #     if SHOW_PREPROCESSING: 
+    #     #         show_data_information(image, label, 'sacle to size')
+
+    #     if self.RandScale:
+    #         scale = get_random_scale(self.min_scale_factor, self.max_scale_factor, self.step_size)
+    #         # print(scale)
+    #         Hs, Ws = int(scale*Hs), int(scale*Ws)
+    #         image = cv2.resize(image, (Ws,Hs), interpolation=self.resize_method)
+    #         if label is not None:
+    #             label = cv2.resize(label, (Ws,Hs), interpolation=cv2.INTER_NEAREST)
+    #         if SHOW_PREPROCESSING:
+    #             show_data_information(image, label, 'random scale')
+
+    #     if self.RandRotate:
+    #         image, label = rand_rotate(image, label, min_angle=self.min_angle, max_angle=self.max_angle)
+    #         if SHOW_PREPROCESSING:
+    #             show_data_information(image, label, 'rotate')
+
+    #     if self.GaussianBlur:
+    #         image, label = gaussian_blur(image, label)
+    #         if SHOW_PREPROCESSING:
+    #             show_data_information(image, label, 'gaussian blur')
+
+    #     if self.RandCrop:
+    #         Ws = np.random.randint(0, Ws - self.crop_size[1] + 1, 1)[0]
+    #         Hs = np.random.randint(0, Hs - self.crop_size[0] + 1, 1)[0]
+    #         image = image[Hs:Hs + self.crop_size[0], Ws:Ws + self.crop_size[0]]
+    #         if label is not None:
+    #             label = label[Hs:Hs + self.crop_size[1], Ws:Ws + self.crop_size[1]]
+    #         if SHOW_PREPROCESSING: 
+    #             show_data_information(image, label, 'random crop')
 
     def __call__(self, image, label=None):
         self.original_image = image
@@ -279,51 +426,51 @@ class DataPreprocessing():
 
         #  TODO: if immput is 190X400 will this distortion affect result?
         
-        if self.ScaleLimitSize:
-            scale_ratio = (self.crop_size[0]+1) / min(H, W)
-            if scale_ratio > 1.0:
-                Hs, Ws = int(H*scale_ratio), int(W*scale_ratio)
-                image = cv2.resize(image, (Ws,Hs), interpolation=self.resize_method)
-                if label is not None:
-                    label = cv2.resize(label, (Ws,Hs), interpolation=cv2.INTER_NEAREST)
-            if SHOW_PREPROCESSING:
-                show_data_information(image, label, 'scale limit size')
+        # if self.ScaleLimitSize:
+        #     scale_ratio = (self.crop_size[0]+1) / min(H, W)
+        #     if scale_ratio > 1.0:
+        #         Hs, Ws = int(H*scale_ratio), int(W*scale_ratio)
+        #         image = cv2.resize(image, (Ws,Hs), interpolation=self.resize_method)
+        #         if label is not None:
+        #             label = cv2.resize(label, (Ws,Hs), interpolation=cv2.INTER_NEAREST)
+        #     if SHOW_PREPROCESSING:
+        #         show_data_information(image, label, 'scale limit size')
 
-        if self.PadToSquare:
-            # TODO: pad to square, params
-            pad_size = max(Hs, Ws)
-            self.padding_height, self.padding_width = pad_size, pad_size
+        # if self.PadToSquare:
+        #     # TODO: pad to square, params
+        #     pad_size = max(Hs, Ws)
+        #     self.padding_height, self.padding_width = pad_size, pad_size
 
-            if Hs < self.padding_height:
-                top = (self.padding_height - Hs)//2
-                bottom = self.padding_height - top - Hs
-            else:
-                top, bottom = 0, 0
-            if Ws < self.padding_width:
-                left = (self.padding_width - Ws)//2
-                right = self.padding_width - left - Ws
-            else:
-                left, right = 0, 0
-            image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=self.padding_value)
-            if label is not None:
-                label = cv2.copyMakeBorder(label, top, bottom, left, right, cv2.BORDER_CONSTANT, value=self.padding_value)
-            Hs, Ws = image.shape[0], image.shape[1]
-            if SHOW_PREPROCESSING: 
-                show_data_information(image, label, 'pad to square')
-                print('    padding', top, bottom, left, right)
+        #     if Hs < self.padding_height:
+        #         top = (self.padding_height - Hs)//2
+        #         bottom = self.padding_height - top - Hs
+        #     else:
+        #         top, bottom = 0, 0
+        #     if Ws < self.padding_width:
+        #         left = (self.padding_width - Ws)//2
+        #         right = self.padding_width - left - Ws
+        #     else:
+        #         left, right = 0, 0
+        #     image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=self.padding_value)
+        #     if label is not None:
+        #         label = cv2.copyMakeBorder(label, top, bottom, left, right, cv2.BORDER_CONSTANT, value=self.padding_value)
+        #     Hs, Ws = image.shape[0], image.shape[1]
+        #     if SHOW_PREPROCESSING: 
+        #         show_data_information(image, label, 'pad to square')
+        #         print('    padding', top, bottom, left, right)
 
-        if self.RandFlip:
-            image, label = rand_flip(image, label, flip_prob=self.flip_prob)
-            if SHOW_PREPROCESSING: 
-                show_data_information(image, label, 'random flip')
+        # if self.RandFlip:
+        #     image, label = rand_flip(image, label, flip_prob=self.flip_prob)
+        #     if SHOW_PREPROCESSING: 
+        #         show_data_information(image, label, 'random flip')
 
-        if self.ScaleToSize:
-            Hs, Ws = self.scale_size[0], self.scale_size[1]
-            image = cv2.resize(image, (Hs, Ws), interpolation=self.resize_method)
-            if label is not None:
-                label = cv2.resize(label, (Hs, Ws), interpolation=cv2.INTER_NEAREST)
-            if SHOW_PREPROCESSING: 
-                show_data_information(image, label, 'sacle to size')
+        # if self.ScaleToSize:
+        #     Hs, Ws = self.scale_size[0], self.scale_size[1]
+        #     image = cv2.resize(image, (Hs, Ws), interpolation=self.resize_method)
+        #     if label is not None:
+        #         label = cv2.resize(label, (Hs, Ws), interpolation=cv2.INTER_NEAREST)
+        #     if SHOW_PREPROCESSING: 
+        #         show_data_information(image, label, 'sacle to size')
 
         if self.RandScale:
             scale = get_random_scale(self.min_scale_factor, self.max_scale_factor, self.step_size)
@@ -345,16 +492,15 @@ class DataPreprocessing():
             if SHOW_PREPROCESSING:
                 show_data_information(image, label, 'gaussian blur')
 
-        if self.RandCrop:
-            Ws = np.random.randint(0, Ws - self.crop_size[1] + 1, 1)[0]
-            Hs = np.random.randint(0, Hs - self.crop_size[0] + 1, 1)[0]
-            image = image[Hs:Hs + self.crop_size[0], Ws:Ws + self.crop_size[0]]
-            if label is not None:
-                label = label[Hs:Hs + self.crop_size[1], Ws:Ws + self.crop_size[1]]
-            if SHOW_PREPROCESSING: 
-                show_data_information(image, label, 'random crop')
+        # if self.RandCrop:
+        #     Ws = np.random.randint(0, Ws - self.crop_size[1] + 1, 1)[0]
+        #     Hs = np.random.randint(0, Hs - self.crop_size[0] + 1, 1)[0]
+        #     image = image[Hs:Hs + self.crop_size[0], Ws:Ws + self.crop_size[0]]
+        #     if label is not None:
+        #         label = label[Hs:Hs + self.crop_size[1], Ws:Ws + self.crop_size[1]]
+        #     if SHOW_PREPROCESSING: 
+        #         show_data_information(image, label, 'random crop')
 
-        # image = np.expand_dims(image, 2)
-        # if label is not None:
-        #     label = np.expand_dims(label, 2)
+        if len(image.shape)==2: image = image[...,np.newaxis]
+        if len(label.shape)==2: label = label[...,np.newaxis]
         return (image, label)

@@ -136,8 +136,22 @@ def generate_augment_samples(path, aug_config, dataset_config, mode):
         # plt.show()
 
 
-def convert_value(image):
-    return np.int32(image//255)
+def minmax_normalization(image):
+    img_max = np.max(image)
+    img_min = np.min(image)
+    return (image-img_min) / (img_max-img_min)
+
+
+def convert_value(image, value_pair=None):
+    # TODO: one-to-one mapping, non-repeat
+    # TODO: label pair convert
+    for k in value_pair:
+        image[image==k] = value_pair[k]
+    return image
+
+
+# def convert_value(image):
+#     return np.int32(image//255)
 
 
 # TODO: Write in inherit form
@@ -145,26 +159,26 @@ def convert_value(image):
 # TODO: dir_key to select benign or malignant
 class ImageDataset(Dataset):
     def __init__(self, config, mode):
-        if mode == 'train':
-            dataset_config = config.dataset.train
-        elif mode == 'test':
-            dataset_config = config.dataset.val
+        # TODO: dynamic
+        assert (mode=='train' or mode=='test'), f'Unknown executing mode [{mode}].'
+        dataset_config = config.dataset.train if mode == 'train' else config.dataset.val
         model_config = config.model
+        
         data_split = config.dataset['data_split']
         assert (isinstance(data_split, list) or isinstance(data_split, tuple))
         assert data_split[0] + data_split[1] == 1
+        self.min_resize_value = dataset_config.preprocess_config.min_resize_value
+        self.max_resize_value = dataset_config.preprocess_config.max_resize_value
+        self.scale_factor_step_size = dataset_config.preprocess_config.scale_factor_step_size
         self.model_config = model_config
         self.mode = mode
         self.dataset_config = dataset_config
+        self.crop_size = self.dataset_config.preprocess_config.crop_size
         self.transform = transforms.Compose([transforms.ToTensor()])
-
-        # if mode == 'train':
-        #     data_path = os.path.join(dataset_config.index_path, 'train.txt')
-        # elif mode == 'test':
-        #     data_path = os.path.join(dataset_config.index_path, 'valid.txt')
         data_path = os.path.join(config.dataset.index_path, f'{mode}.txt')
         self.input_data = dataset_utils.load_content_from_txt(data_path)
         self.input_data.sort()
+        # TODO: gt not exist condition
         self.ground_truth = [f.split('.png')[0]+'_mask.png' for f in self.input_data] 
         print(f"{self.mode}  Samples: {len(self.input_data)}")
 
@@ -172,23 +186,53 @@ class ImageDataset(Dataset):
         return len(self.input_data)
 
     def __getitem__(self, idx):
+        # TODO: assert for the situation that in_channels=1 but value different between channels
         # Load images
         self.original_image = cv2.imread(self.input_data[idx])[...,0:self.model_config.in_channels]
-        # TODO: convert in right way
-        self.original_label = convert_value(cv2.imread(self.ground_truth[idx])[...,0:self.model_config.in_channels])
-        
-        # input_image, gt_image = preprocessing.resize_to_range(self.orignal_image, self.orignal_label)
-        # input_image, gt_image = preprocessing.pad_to_bounding_box(input_image, gt_image)
+        # TODO: dynamic value pair
+        self.original_label = convert_value(
+            image=cv2.imread(self.ground_truth[idx])[...,0:self.model_config.in_channels], value_pair={255: 1})
 
-        # Data preprocessing
-        # TODO: merge output_strides_align to DataPreprocessing
-        output_strides = self.model_config.output_strides
-        input_image, gt_image = preprocessing.output_strides_align(self.original_image, output_strides, self.original_label)
+        input_image, gt_image = preprocessing.resize_to_range(self.original_image, self.original_label,
+            min_size=self.min_resize_value, max_size=self.max_resize_value, factor=self.scale_factor_step_size)
+        # # Data preprocessing
+        # output_strides = self.model_config.output_strides
+        # input_image, gt_image = preprocessing.output_strides_align(self.original_image, output_strides, self.original_label)
 
         if self.dataset_config.is_data_augmentation:
             preprocessor = preprocessing.DataPreprocessing(self.dataset_config['preprocess_config'])
             input_image, gt_image = preprocessor(input_image, gt_image)
             
+        # Pad image and label to have dimensions >= [crop_height, crop_width]
+        image_shape = input_image.shape
+        image_height = image_shape[0]
+        image_width = image_shape[1]
+
+        target_height = image_height + max(self.crop_size[0] - image_height, 0)
+        target_width = image_width + max(self.crop_size[1] - image_width, 0)
+        
+        input_image = preprocessing.pad_to_bounding_box(
+            input_image, 0, 0, target_height, target_width, pad_value=0)
+        if gt_image is not None:
+            gt_image = preprocessing.pad_to_bounding_box(
+                gt_image, 0, 0, target_height, target_width, pad_value=0)
+
+        if self.dataset_config.is_data_augmentation:
+            Hs, Ws = input_image.shape[:2]
+            Ws = np.random.randint(0, Ws - self.crop_size[1] + 1, 1)[0]
+            Hs = np.random.randint(0, Hs - self.crop_size[0] + 1, 1)[0]
+            input_image = input_image[Hs:Hs + self.crop_size[0], Ws:Ws + self.crop_size[0]]
+            if gt_image is not None:
+                gt_image = gt_image[Hs:Hs + self.crop_size[1], Ws:Ws + self.crop_size[1]]
+
+            input_image, gt_image = preprocessing.rand_flip(
+                input_image, gt_image, flip_prob=self.dataset_config.preprocess_config.flip_prob)
+
+        # Standardize
+        # input_image = preprocessing.standardize(input_image)
+        # if gt_image is not None:
+        #     gt_image = preprocessing.standardize(gt_image)
+
         # Transform to Torch tensor
         input_image = self.transform(input_image)
         gt_image = self.transform(gt_image)
@@ -221,6 +265,9 @@ class ClassificationImageDataset(ImageDataset):
         if self.dataset_config.is_data_augmentation:
             preprocessor = preprocessing.DataPreprocessing(self.dataset_config['preprocess_config'])
             input_image, _ = preprocessor(input_image)
+        
+        # Standardize
+        # input_image = preprocessing.standardize(input_image)
 
         # Transform to Torch tensor
         input_image = self.transform(input_image)

@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torchvision
 import torch.optim as optim
 import matplotlib.pyplot as plt
+import model
 import argparse
 from model import UNet_2d
 from model import ImageClassifier
@@ -20,6 +21,7 @@ from utils import train_utils, metrics
 import cv2
 import os
 from utils import configuration
+import layers
 CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2dunet_cls_train_config.yml'
 
 # def dataset_test():
@@ -403,15 +405,69 @@ def BU_image_read_and_show():
 
 
 def test_model_main():
-    for b in ['resnet18', 'resnet50', 'resnext50', 'wide_resnet']:
-        for in_c in [1, 3]:
-            for p in [True, False]:
-                net = ImageClassifier(
-                    backbone=b, in_channels=in_c, activation='sigmoid',
-                    out_channels=3, pretrained=p, dim=1, output_structure=[100, 100])
-                print(net)
+    net = model.UNet_2d_backbone(in_channels=3, out_channels=3, basic_module=layers.DoubleConv, f_maps=32)
+    print(net)
 
+
+def dsc_for_deeplab_main():
+    pred_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\deeplabv3+\data\myDataset\exp\segmentation_results_valid_200000\seg'
+    target_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\deeplabv3+\data\myDataset\exp\segmentation_results_valid_20000\input_image\val'
+    evaluator = metrics.SegmentationMetrics(num_class=2)
+    mean_precision, mean_recall = [], []
+    for l, p in zip(os.listdir(target_path), os.listdir(pred_path)):
+        print(p)
+        label = cv2.imread(os.path.join(target_path, l))[...,2]
+        prediction = cv2.imread(os.path.join(pred_path, p))[...,2]
+        prediction = prediction//128
+        evals = evaluator(label, prediction)
+        # mean_precision.append(evals['precision'])
+        # mean_recall.append(evals['recall'])
+    precision = metrics.precision(evaluator.total_tp, evaluator.total_fp)
+    recall = metrics.recall(evaluator.total_tp, evaluator.total_fn)
+    dsc = metrics.f1(evaluator.total_tp, evaluator.total_fp, evaluator.total_fn)
+    iou = metrics.iou(evaluator.total_tp, evaluator.total_fp, evaluator.total_fn)
+
+    accuracy = metrics.accuracy(np.sum(evaluator.total_tp), np.sum(evaluator.total_fp), np.sum(evaluator.total_fn))
+    total_precision = np.mean(precision)
+    total_recall = np.mean(recall)
+    mean_dsc = np.mean(dsc)
+    mean_iou = np.mean(iou)
+
+    print(30*'-')
+    print(f'total precision: {total_precision:.4f}')
+    print(f'total recall: {total_recall:.4f}')
+    print(f'total accuracy: {accuracy:.4f}\n')
     
+    # mean_precision = sum(mean_precision) / len(mean_precision)
+    # mean_recall = sum(mean_recall) / len(mean_recall)
+    # print(f'mean precision: {mean_precision:.4f}')
+    # print(f'mean recall: {mean_recall:.4f}\n')
+    
+    print(f'DSC: {dsc}')
+    print(f'mean DSC: {mean_dsc:.4f}')
+    print(f'IoU: {iou}')
+    print(f'mean IoU: {mean_iou:.4f}')
+
+
+    # for b in ['resnet18', 'resnet50', 'resnext50', 'wide_resnet']:
+    #     for in_c in [1, 3]:
+    #         for p in [True, False]:
+    #             net = ImageClassifier(
+    #                 backbone=b, in_channels=in_c, activation='sigmoid',
+    #                 out_channels=3, pretrained=p, dim=1, output_structure=[100, 100])
+    #             print(net)
+
+
+def Timm_main():
+    import timm
+    from pprint import pprint
+    model_names = timm.list_models(pretrained=True)
+    # pprint(model_names)
+    m = timm.create_model('efficientnet_b0', pretrained=True)
+    print(m)
+    
+
+
 # def path_test():
     # datapath = "C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\archive\\Dataset_BUSI_with_GT"
     # data_analysis(datapath)
@@ -452,6 +508,8 @@ if __name__ == "__main__":
     # BU_cls_dataloader_main()
     # BU_save_name_main()
     # BU_detection_label_to_segmentation_label()
-    test_model_main()
+    # test_model_main()
     # BU_image_read_and_show()
+    # dsc_for_deeplab_main()
+    Timm_main()
     pass

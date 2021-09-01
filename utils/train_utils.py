@@ -10,6 +10,11 @@ import torch.optim as optim
 import numpy as np
 
 
+
+def number_of_features_per_level(init_channel_number, num_levels):
+    return [init_channel_number * 2 ** k for k in range(num_levels)]
+
+
 def get_optimizer(name, net, config):
     if name == 'Adam':
         return optim.Adam(net.parameters(), lr=config.train.learning_rate)

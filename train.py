@@ -10,7 +10,8 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 # from cfg import dataset_config
 from dataset.dataloader import ImageDataset
-from model import UNet_2d
+from model import UNet_2d, UNet_2d_backbone
+from layers import DoubleConv
 from utils import train_utils
 from utils import configuration
 from utils import metrics
@@ -45,7 +46,12 @@ def main():
     config = train_utils.DictAsMember(config)
     checkpoint_path = train_utils.create_training_path(os.path.join(config.train.project_path, 'models'))
 
-    net = UNet_2d(input_channels=config.model.in_channels, num_class=config.model.out_channels)
+    # net = UNet_2d(input_channels=config.model.in_channels, num_class=config.model.out_channels)
+    # TODO: dynamic
+    f_maps = [64, 256, 512, 1024, 2048]
+    net = UNet_2d_backbone(
+        in_channels=config.model.in_channels, out_channels=config.model.out_channels, f_maps=f_maps, basic_module=DoubleConv)
+    print(net)
     if torch.cuda.is_available():
         net.cuda()
     # TODO: Select optimizer by config file
@@ -72,8 +78,8 @@ def main():
     min_loss = 1e5
     max_acc = -1
     saving_steps = config.train.checkpoint_saving_steps
-    training_steps = int(training_samples/config.train.batch_size)
-    if training_samples%config.train.batch_size != 0:
+    training_steps = int(training_samples/config.dataset.train.batch_size)
+    if training_samples%config.dataset.train.batch_size != 0:
         training_steps += 1
     testing_steps = len(test_dataloader.dataset)
     experiment = [s for s in checkpoint_path.split('\\') if 'run' in s][0]
@@ -87,7 +93,7 @@ def main():
     level = round(level / 10**(length-1)) * 10**(length-1)
     print("Start Training!!")
     print("Training epoch: {} Batch size: {} Shuffling Data: {} Training Samples: {}".
-            format(config.train.epoch, config.train.batch_size, config.dataset.shuffle, training_samples))
+            format(config.train.epoch, config.dataset.train.batch_size, config.dataset.train.shuffle, training_samples))
     print(60*"-")
     
     train_utils._logging(os.path.join(checkpoint_path, 'logging.txt'), config, access_mode='w+')

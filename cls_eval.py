@@ -73,9 +73,6 @@ def eval():
     test_dataset = ClassificationImageDataset(config, mode=config.eval.running_mode)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
-
-
-
     # model
     net = ImageClassifier(
         backbone=config.model.name, in_channels=config.model.in_channels, activation=config.model.activation,

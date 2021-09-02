@@ -353,6 +353,31 @@ def create_conv2d(in_channels, out_channels, kernel_size, order, num_groups, pad
     return modules
 
 
+class MultiLayerPerceptron(nn.Module):
+    def __init__(self, structure, activation=None, out_activation=None, *args, **kwargs):
+        super(MultiLayerPerceptron, self).__init__()
+        self.mlp = torch.nn.Sequential()
+        self.activation = activation
+        self.out_activation = out_activation
+        assert isinstance(structure, (list, tuple)), 'Model structure "structure" should be list or tuple'
+        assert len(structure) > 1, 'The length of structure should be at least 2 to define linear layer'
+
+        for idx in range(len(structure)-1):
+            in_channels, out_channels = structure[idx], structure[idx+1]
+            self.mlp.add_module(f"fc{idx+1}", torch.nn.Linear(in_channels, out_channels))
+            if self.activation is not None and idx+1 < len(structure)-1:
+                self.mlp.add_module(f"{self.activation}{idx+1}", get_activation(self.activation))
+
+        if self.out_activation is not None:
+            out_dix = idx + 2 if self.out_activation == self.activation else 1
+            self.mlp.add_module(f"{self.out_activation}{out_dix}", get_activation(self.out_activation))
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        x = self.mlp(x)
+        return x
+
+        
 # class Encoder(nn.Module):
 #     def __init__(self, in_channels, out_channels, basic_module=ConventionalConv, conv_kernel_size=3, padding=1, pooling='max', pool_kernel_size=2):
 #         super().__init__()

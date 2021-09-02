@@ -1,21 +1,22 @@
 # Classification task on Breast Ultrasound
 import os
-import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 # from cfg import dataset_config
 from dataset.dataloader import ClassificationImageDataset
-from model import ImageClassifier
+# from model import ImageClassifier
+from core.image_calssification import img_classifier
 from utils import train_utils
 from dataset import dataset_utils
 from utils import configuration
 from utils import metrics
+ImageClassifier = img_classifier.ImageClassifier
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Using device: {}'.format(device))
 CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2dunet_cls_train_config.yml'

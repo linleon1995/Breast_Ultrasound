@@ -1,4 +1,3 @@
-from layers import DoubleConv
 import os
 import argparse
 import matplotlib.pyplot as plt
@@ -54,8 +53,8 @@ def main():
 
     # net = UNet_2d(input_channels=config.model.in_channels, num_class=config.model.out_channels)
     # TODO: dynamic
-    f_maps = [32, 32, 64, 128, 256]
-    # f_maps = [64, 256, 512, 1024, 2048]
+    # f_maps = [32, 32, 64, 128, 256]
+    f_maps = [64, 256, 512, 1024, 2048]
     net = UNet_2d_backbone(
         in_channels=config.model.in_channels, out_channels=config.model.out_channels, f_maps=f_maps, basic_module=DoubleConv)
     print(net)

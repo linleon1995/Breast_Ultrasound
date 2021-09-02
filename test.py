@@ -7,10 +7,11 @@ import torch.nn.functional as F
 import torchvision
 import torch.optim as optim
 import matplotlib.pyplot as plt
-import model
 import argparse
-from model import UNet_2d
-from model import ImageClassifier
+# from model import UNet_2d
+# from model import ImageClassifier
+from core.unet import unet_2d
+from core.image_calssification import img_classifier
 from torch.utils.data import Dataset, DataLoader
 from dataset.dataloader import ImageDataset, ClassificationImageDataset, data_analysis
 from dataset.preprocessing import DataPreprocessing
@@ -21,7 +22,10 @@ from utils import train_utils, metrics
 import cv2
 import os
 from utils import configuration
-import layers
+from core import layers
+UNet_2d = unet_2d.UNet_2d
+ImageClassifier = img_classifier.ImageClassifier
+
 CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2dunet_cls_train_config.yml'
 
 # def dataset_test():
@@ -370,7 +374,7 @@ def test_new_eval_main():
 # TODO: filtering mode for keyword, remove or add
 def save_aLL_files_name(path, keyword=None):
     files = os.listdir(path)
-    # files.sort()
+    files.sort()
     with open(os.path.join(path, 'file_names.txt'), 'w+') as fw:
         for f in files:
             if keyword is not None:
@@ -387,6 +391,7 @@ def save_aLL_files_name(path, keyword=None):
 def BU_save_name_main():
     path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\YOLO\DataSet\BU\JPEGImages'
     path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\archive\Dataset_BUSI_with_GT\benign'
+    path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\Kaggle_BU\val\Images'
     save_aLL_files_name(path, keyword='mask')
 
 

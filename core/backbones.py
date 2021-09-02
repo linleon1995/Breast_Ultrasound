@@ -1,12 +1,14 @@
 from functools import partial
-from model import get_activation
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
+import timm
 from core import utils
 get_activation = utils.get_activation
 
+
+# TODO: Define AbstractBackboneBuilder
 class PytorchResnetBuilder(nn.Module):
     def __init__(self, in_channels, backbone, pretrained=True, final_flatten=False):
         super(PytorchResnetBuilder, self).__init__()
@@ -53,7 +55,7 @@ class PytorchResnetBuilder(nn.Module):
         return self.model(x)
 
 
-class PytorchResnextBuilder(nn.Module):
+class PytorchResnextBuilder(PytorchResnetBuilder):
     def __init__(self, in_channels, backbone, pretrained=True, final_flatten=False):
         super(PytorchResnextBuilder, self).__init__(in_channels, backbone, pretrained, final_flatten)
 
@@ -66,33 +68,28 @@ class PytorchResnextBuilder(nn.Module):
             raise ValueError('Undefined Backbone Name.')
 
 
-class MultiLayerPerceptron(nn.Module):
-    def __init__(self, structure, activation=None, out_activation=None, *args, **kwargs):
-        super(MultiLayerPerceptron, self).__init__()
-        self.mlp = torch.nn.Sequential()
-        self.activation = activation
-        self.out_activation = out_activation
-        assert isinstance(structure, (list, tuple)), 'Model structure "structure" should be list or tuple'
-        assert len(structure) > 1, 'The length of structure should be at least 2 to define linear layer'
-
-        for idx in range(len(structure)-1):
-            in_channels, out_channels = structure[idx], structure[idx+1]
-            self.mlp.add_module(f"fc{idx+1}", torch.nn.Linear(in_channels, out_channels))
-            if self.activation is not None and idx+1 < len(structure)-1:
-                self.mlp.add_module(f"{self.activation}{idx+1}", get_activation(self.activation))
-
-        if self.out_activation is not None:
-            out_dix = idx + 2 if self.out_activation == self.activation else 1
-            self.mlp.add_module(f"{self.out_activation}{out_dix}", get_activation(self.out_activation))
+class TimmEfficientNetBuilder(nn.Module):
+    def __init__(self, in_channels, backbone, pretrained=True, final_flatten=False):
+        super(TimmEfficientNetBuilder, self).__init__()
+        self.in_channels = in_channels
+        self.backbone = backbone
+        self.pretrained = pretrained
+        self.final_flatten = final_flatten
+        self.model = self.get_model()
+        
+    def get_model(self):
+        return timm.create_model(self.backbone, pretrained=self.pretrained)
 
     def forward(self, x):
-        x = x.view(x.size(0), -1)
-        x = self.mlp(x)
-        return x
-
+        return self.model(x)
 
 def creat_torchvision_backbone(in_channels, backbone, pretrained, final_flatten=True):
     if 'resnet' in backbone:
         return PytorchResnetBuilder(in_channels, backbone, pretrained, final_flatten)
     elif 'resnext' in backbone:
         return PytorchResnextBuilder(in_channels, backbone, pretrained, final_flatten)
+
+
+def creat_timm_backbone(in_channels, backbone, pretrained, final_flatten=True):
+    if 'efficientnet' in backbone:
+        return TimmEfficientNetBuilder(in_channels, backbone, pretrained, final_flatten)

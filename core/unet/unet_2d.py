@@ -34,11 +34,18 @@ class UNet_2d_backbone(nn.Module):
         self.encoders = create_encoder(in_channels, backbone, pretrained=pretrained, final_flatten=False)
         
         # create decoder path
-        self.decoder = create_decoders(f_maps, basic_module, conv_kernel_size, conv_padding, layer_order, 
+        self.decoders = create_decoders(f_maps, basic_module, conv_kernel_size, conv_padding, layer_order, 
                                               num_groups, upsample=True, conv_type='2d')
 
-        self.classifier = Conv_Bn_Activation(in_channels=f_maps[0], out_channels=self.out_channels, activation=None)
-        self.classifier = SingleConv(in_channels, out_channels, conv_type='2d', kernel_size=3, order='bc')
+        
+        self.conv = basic_module(f_maps[0], f_maps[0]//2, conv_type='2d',
+                                encoder=False,
+                                kernel_size=conv_kernel_size,
+                                order='bcr',
+                                num_groups=num_groups,
+                                padding=conv_padding)
+        # self.classifier = Conv_Bn_Activation(in_channels=f_maps[0], out_channels=self.out_channels, activation=None)
+        self.classifier = SingleConv(f_maps[0]//2, out_channels, conv_type='2d', kernel_size=1, order='bc')
 
     def forward(self, x):
         # encoder part
@@ -63,8 +70,11 @@ class UNet_2d_backbone(nn.Module):
         # if self.testing and self.final_activation is not None:
         #     x = self.final_activation(x)
         # return x
+        
+        x = F.interpolate(x, size=x.size()[2]*2, mode='bilinear')
+        x = self.conv(x)
         x = self.classifier(x)
-        return nn.Sigmoid()(self.classifier(x))
+        return nn.Sigmoid()(x)
 
 
 

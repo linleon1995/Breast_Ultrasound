@@ -9,22 +9,14 @@ from torch.functional import align_tensors
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-from model import UNet_2d
 from dataset.dataloader import ImageDataset
 from dataset.preprocessing import DataPreprocessing
 from utils import train_utils
 from utils import metrics
 from utils import configuration
-# MODE = 'test'
-# MODEL = 'run_040'
-# CHECKPOINT_NAME = 'ckpt_best.pth'
-# PROJECT_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound'
-# CHECKPOINT = os.path.join(PROJECT_PATH, 'models', MODEL)
+from core.unet import unet_2d
+UNet_2d = unet_2d.UNet_2d
 EVAL_DIR_KEY = ''
-# SHOW_IMAGE = False
-# SAVE_IMAGE = False
-# SAVE_PREDICTION = False
-# DATA_AUGMENTATION = False
 # TODO: solve device problem, check behavoir while GPU using
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')

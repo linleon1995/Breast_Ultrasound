@@ -3,6 +3,7 @@ import torch.nn as nn
 from core import layers
 from core import backbones
 creat_torchvision_backbone = backbones.creat_torchvision_backbone
+creat_timm_backbone = backbones.creat_timm_backbone
 MultiLayerPerceptron = layers.MultiLayerPerceptron
 
 
@@ -12,7 +13,10 @@ class ImageClassifier(nn.Module):
         super(ImageClassifier, self).__init__()
         self.out_channels = out_channels
         self.output_structure = output_structure
-        self.encoder = creat_torchvision_backbone(in_channels, backbone, pretrained, final_flatten=True)
+        if 'resnet' in backbone or 'resnext' in backbone:
+            self.encoder = creat_torchvision_backbone(in_channels, backbone, pretrained, final_flatten=True)
+        elif backbone in ['efficientnet_b0', 'efficientnet_b4']:
+            self.encoder = creat_timm_backbone(in_channels, backbone, pretrained, final_flatten=True)
         if in_channels != 3 and pretrained:
             logging.info('Reinitialized first layer')
 

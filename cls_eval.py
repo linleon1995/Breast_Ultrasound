@@ -8,7 +8,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 from torch.utils.data import Dataset, DataLoader
-from model import ImageClassifier
+# from model import ImageClassifier
+from core.image_calssification import img_classifier
 from dataset.dataloader import ClassificationImageDataset
 from dataset.preprocessing import DataPreprocessing
 from utils import train_utils
@@ -17,15 +18,8 @@ from utils import configuration
 import itertools
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
-# MODE = 'test'
-# MODEL = 'run_050'
-# CHECKPOINT_NAME = 'ckpt_best_0100.pth'
-# PROJECT_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound'
-# CHECKPOINT = os.path.join(PROJECT_PATH, 'models', MODEL)
+ImageClassifier = img_classifier.ImageClassifier
 EVAL_DIR_KEY = ''
-# SHOW_IMAGE = False
-# SAVE_IMAGE = False
-# DATA_AUGMENTATION = False
 # TODO: solve device problem, check behavoir while GPU using
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')

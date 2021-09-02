@@ -179,7 +179,8 @@ class ImageDataset(Dataset):
         self.input_data = dataset_utils.load_content_from_txt(data_path)
         self.input_data.sort()
         # TODO: gt not exist condition
-        self.ground_truth = [f.split('.png')[0]+'_mask.png' for f in self.input_data] 
+        self.ground_truth = [f.replace('.png', '_mask.png') for f in self.input_data] 
+        # self.ground_truth = [f.split('.png')[0]+'_mask.png' for f in self.input_data] 
         print(f"{self.mode}  Samples: {len(self.input_data)}")
 
     def __len__(self):
@@ -193,11 +194,11 @@ class ImageDataset(Dataset):
         self.original_label = convert_value(
             image=cv2.imread(self.ground_truth[idx])[...,0:self.model_config.in_channels], value_pair={255: 1})
 
-        input_image, gt_image = preprocessing.resize_to_range(self.original_image, self.original_label,
-            min_size=self.min_resize_value, max_size=self.max_resize_value, factor=self.scale_factor_step_size)
+        # input_image, gt_image = preprocessing.resize_to_range(self.original_image, self.original_label,
+        #     min_size=self.min_resize_value, max_size=self.max_resize_value, factor=self.scale_factor_step_size)
         # # Data preprocessing
-        # output_strides = self.model_config.output_strides
-        # input_image, gt_image = preprocessing.output_strides_align(self.original_image, output_strides, self.original_label)
+        output_strides = self.model_config.output_strides
+        input_image, gt_image = preprocessing.output_strides_align(self.original_image, output_strides, self.original_label)
 
         if self.dataset_config.is_data_augmentation:
             preprocessor = preprocessing.DataPreprocessing(self.dataset_config['preprocess_config'])
@@ -211,22 +212,22 @@ class ImageDataset(Dataset):
         target_height = image_height + max(self.crop_size[0] - image_height, 0)
         target_width = image_width + max(self.crop_size[1] - image_width, 0)
         
-        input_image = preprocessing.pad_to_bounding_box(
-            input_image, 0, 0, target_height, target_width, pad_value=0)
-        if gt_image is not None:
-            gt_image = preprocessing.pad_to_bounding_box(
-                gt_image, 0, 0, target_height, target_width, pad_value=0)
+        # input_image = preprocessing.pad_to_bounding_box(
+        #     input_image, 0, 0, target_height, target_width, pad_value=0)
+        # if gt_image is not None:
+        #     gt_image = preprocessing.pad_to_bounding_box(
+        #         gt_image, 0, 0, target_height, target_width, pad_value=0)
 
-        if self.dataset_config.is_data_augmentation:
-            Hs, Ws = input_image.shape[:2]
-            Ws = np.random.randint(0, Ws - self.crop_size[1] + 1, 1)[0]
-            Hs = np.random.randint(0, Hs - self.crop_size[0] + 1, 1)[0]
-            input_image = input_image[Hs:Hs + self.crop_size[0], Ws:Ws + self.crop_size[0]]
-            if gt_image is not None:
-                gt_image = gt_image[Hs:Hs + self.crop_size[1], Ws:Ws + self.crop_size[1]]
+        # if self.dataset_config.is_data_augmentation:
+        #     Hs, Ws = input_image.shape[:2]
+        #     Ws = np.random.randint(0, Ws - self.crop_size[1] + 1, 1)[0]
+        #     Hs = np.random.randint(0, Hs - self.crop_size[0] + 1, 1)[0]
+        #     input_image = input_image[Hs:Hs + self.crop_size[0], Ws:Ws + self.crop_size[0]]
+        #     if gt_image is not None:
+        #         gt_image = gt_image[Hs:Hs + self.crop_size[1], Ws:Ws + self.crop_size[1]]
 
-            input_image, gt_image = preprocessing.rand_flip(
-                input_image, gt_image, flip_prob=self.dataset_config.preprocess_config.flip_prob)
+        #     input_image, gt_image = preprocessing.rand_flip(
+        #         input_image, gt_image, flip_prob=self.dataset_config.preprocess_config.flip_prob)
 
         # Standardize
         # input_image = preprocessing.standardize(input_image)

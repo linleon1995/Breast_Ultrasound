@@ -3,7 +3,7 @@ manual_seed: 0
 # model configuration
 model:
   # model class, e.g. UNet3D, ResidualUNet3D
-  name: resnet50
+  name: efficientnet_b0
   # number of input channels to the model
   in_channels: 3
   # number of output channels
@@ -15,7 +15,7 @@ model:
   # number of groups in the groupnorm
   # num_groups: 8
   # apply element-wise nn.Sigmoid after the final 1x1 convolution, otherwise apply nn.Softmax
-  activation: relu
+  activation: null
   # if True applies the final normalization layer (sigmoid or softmax), otherwise the networks returns the output from the final convolution layer; use False for regression problems, e.g. de-noising
   # is_segmentation: true
   output_strides: 16
@@ -207,13 +207,37 @@ dataset:
     dir_key: ""
     file_key: mask
     is_data_augmentation: False
+    preprocess_config:
+      crop_size: 
+        - 512
+        - 512
+      # PadToSquare: False
+      HorizontalFlip: True
+      RandCrop: True
+      RandScale: False
+      # ScaleToSize: False
+      # ScaleLimitSize: True
+      RandRotate: True
+      GaussianBlur: True
+      padding_value: 0.0
+      flip_prob: 0.5
+      min_scale_factor: 1.0
+      max_scale_factor: 1.25
+      step_size: 0.125
+      min_resize_value: 384
+      max_resize_value: 512
+      scale_factor_step_size: 32
+      resize_method: Bilinear
+      flip_prob: 0.5
+      min_angle: -45
+      max_angle: 45
 
 eval:
   show_segmentation_result: False # TODO: change name
   save_segmentation_result: False
   save_prediciton_only: False
   running_mode: test
-  restore_checkpoint_path: C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\models\run_066
+  restore_checkpoint_path: C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\models\run_074
   checkpoint_name: ckpt_best.pth
   eval_dir_key:
   

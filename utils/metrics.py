@@ -76,6 +76,15 @@ def iou(tp, fp, fn):
     return tp / denominator
 
 
+def specificity(tn, fp):
+    denominator = tn + fp
+    denominator = np.where(
+        denominator > 0,
+        denominator,
+        np.ones_like(denominator))
+    return tn / denominator
+
+
 # def precision(tp, fp):
 #     return (tp) / (tp + fp) if tp > 0 else 0
 

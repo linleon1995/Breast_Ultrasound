@@ -2,9 +2,11 @@ import logging
 import torch.nn as nn
 from core import layers
 from core import backbones
+from core import utils
 creat_torchvision_backbone = backbones.creat_torchvision_backbone
 creat_timm_backbone = backbones.creat_timm_backbone
 MultiLayerPerceptron = layers.MultiLayerPerceptron
+get_activation = utils.get_activation
 
 
 class ImageClassifier(nn.Module):
@@ -34,6 +36,7 @@ class ImageClassifier(nn.Module):
     def forward(self, x):
         x = self.encoder(x)
         x = self.mlp(x)
+        
         # x = self.fc1(x)
         # if self.activation_func is not None:
         #     x = self.activation_func(x)

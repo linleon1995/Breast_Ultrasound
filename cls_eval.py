@@ -22,7 +22,7 @@ ImageClassifier = img_classifier.ImageClassifier
 EVAL_DIR_KEY = ''
 # TODO: solve device problem, check behavoir while GPU using
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# device = torch.device('cpu')
+device = torch.device('cpu')
 CONFIG_PATH = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\config\_2dunet_cls_test_config.yml'
 
 
@@ -134,18 +134,21 @@ def eval():
         y_pred = np.concatenate(y_pred, axis=0)
         cm = confusion_matrix(y_true, y_pred)
         print(cm)
-        # plot_confusion_matrix(cm, [0,1,2], normalize=True)
-        # plt.show()
+        plot_confusion_matrix(cm, [0,1,2], normalize=True)
+        plt.show()
 
         precision = metrics.precision(evaluator.total_tp, evaluator.total_fp)
         recall = metrics.recall(evaluator.total_tp, evaluator.total_fn)
+        specificity = metrics.specificity(evaluator.total_tn, evaluator.total_fp)
         accuracy = metrics.accuracy(np.sum(evaluator.total_tp), np.sum(evaluator.total_fp), np.sum(evaluator.total_fn))
         mean_precision = np.mean(precision)
         mean_recall = np.mean(recall)
+        mean_specificity = np.mean(specificity)
         # mean_accuracy = np.mean(accuracy)
         print(30*'-')
         print(f'total precision: {mean_precision:.4f}')
         print(f'total recall: {mean_recall:.4f}\n')
+        print(f'total specificity: {mean_specificity:.4f}\n')
         print(f'total accuracy: {accuracy:.4f}\n')
 
         # mean_precision = sum(total_precision)/len(total_precision)

@@ -204,13 +204,13 @@ class ImageDataset(Dataset):
             preprocessor = preprocessing.DataPreprocessing(self.dataset_config['preprocess_config'])
             input_image, gt_image = preprocessor(input_image, gt_image)
             
-        # Pad image and label to have dimensions >= [crop_height, crop_width]
-        image_shape = input_image.shape
-        image_height = image_shape[0]
-        image_width = image_shape[1]
+        # # Pad image and label to have dimensions >= [crop_height, crop_width]
+        # image_shape = input_image.shape
+        # image_height = image_shape[0]
+        # image_width = image_shape[1]
 
-        target_height = image_height + max(self.crop_size[0] - image_height, 0)
-        target_width = image_width + max(self.crop_size[1] - image_width, 0)
+        # target_height = image_height + max(self.crop_size[0] - image_height, 0)
+        # target_width = image_width + max(self.crop_size[1] - image_width, 0)
         
         # input_image = preprocessing.pad_to_bounding_box(
         #     input_image, 0, 0, target_height, target_width, pad_value=0)

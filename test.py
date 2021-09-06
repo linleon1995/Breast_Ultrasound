@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torchvision
 import torch.optim as optim
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import argparse
 # from model import UNet_2d
 # from model import ImageClassifier
@@ -251,13 +252,15 @@ def get_range_of_mask(segmentation, key_value, gap=10):
 
 def BU_detection_label_to_segmentation_label():
     data_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\YOLO\Release\yolo_main\v4\results'
+    data_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\YOLO\Release\yolo_mark\data\template\label_loosely'
     save_path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\yolo_BU_detection'
+    img_format = 'png'
     os.chdir(data_path)
     data_list = [f for f in os.listdir(data_path) if 'txt' in f]
     for f in data_list:
         print(f)
         # Get the image size and create background
-        img_name = f.replace('txt', 'jpg')
+        img_name = f.replace('txt', img_format)
         img = cv2.imread(img_name)
         h, w = img.shape[:2]
         mask = np.zeros((h, w))
@@ -274,14 +277,21 @@ def BU_detection_label_to_segmentation_label():
                 start = (int(h*(bbox_y-bbox_h/2)), int(w*(bbox_x-bbox_w/2)))
                 end = (int(h*(bbox_y+bbox_h/2)), int(w*(bbox_x+bbox_w/2))) 
                 
-                mask[start[0]:end[0], start[1]:end[1]] = 1
+                # mask[start[0]:end[0], start[1]:end[1]] = 1
                 # print(mask.shape)
                 # plt.imshow(img)
                 # plt.imshow(mask, 'gray', alpha=0.5)
                 # plt.show()
-
+            
+                _, ax = plt.subplots()
+                ax.imshow(img)
+                start = (int(w*(bbox_x-bbox_w/2)), int(h*(bbox_y-bbox_h/2)))
+                rect = patches.Rectangle(start, w*bbox_w, h*bbox_h, linewidth=2, edgecolor='r', facecolor='none')
+                # rect = patches.Rectangle((1,1), 100, 100, linewidth=2, edgecolor='r', facecolor='none')
+                ax.add_patch(rect)
+                plt.show()
         # # Save mask
-        cv2.imwrite(os.path.join(save_path, img_name.replace('.jpg', '_bbox_mask.png')), mask)
+        # cv2.imwrite(os.path.join(save_path, img_name.replace('.jpg', '_bbox_mask.png')), mask)
 
 def BU_segmentation_label_to_detection_label():
     data_path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\Kaggle_BU_original\malignant'
@@ -395,16 +405,18 @@ def BU_save_name_main():
     save_aLL_files_name(path, keyword='mask')
 
 
-def image_read_and_show(path):
+def image_read_and_show(path, show=True):
     image = cv2.imread(path)
-    plt.imshow(image*128)
-    plt.show()
+    if show:
+        plt.imshow(image*128)
+        plt.show()
     return image
 
 
 def BU_image_read_and_show():
     path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\Kaggle_BU_convert_mask\benign\benign (100)_bbox_mask.png'
     path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\yolo_BU_detection\pred\benign (264)_bbox_mask.jpg'
+    path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\deeplabv3+\data\myDataset\exp\segmentation_results_valid_200000\result_masks\benign (274)_bbox_mask.png'
     image = image_read_and_show(path)
     print(image.shape)
 
@@ -461,6 +473,20 @@ def dsc_for_deeplab_main():
     #                 backbone=b, in_channels=in_c, activation='sigmoid',
     #                 out_channels=3, pretrained=p, dim=1, output_structure=[100, 100])
     #             print(net)
+
+def convert_value():
+    path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\deeplabv3+\data\myDataset\exp\segmentation_results_valid_200000\result_masks'
+    save_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\deeplabv3+\data\myDataset\exp\BU_ckpt\detection'
+    data_format = 'png'
+    label_value = np.array([0,0,128])
+    for f in os.listdir(path):
+        if data_format in f:
+            print(f)
+            img = image_read_and_show(os.path.join(path, f), show=False)
+            img = label_value * img
+            # plt.imshow(img)
+            # plt.show()
+            cv2.imwrite(os.path.join(save_path, f), img)
 
 
 def Timm_main():
@@ -549,6 +575,7 @@ if __name__ == "__main__":
     # test_model_main()
     # BU_image_read_and_show()
     # dsc_for_deeplab_main()
-    Timm_main()
+    # Timm_main()
     # contrast_enhance_main()
+    convert_value()
     pass

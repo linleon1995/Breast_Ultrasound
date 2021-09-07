@@ -10,6 +10,7 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 from dataset import preprocessing
+from dataset import input_preprocess
 from dataset import dataset_utils
 from utils import configuration
 
@@ -187,6 +188,30 @@ class ImageDataset(Dataset):
         return len(self.input_data)
 
     def __getitem__(self, idx):
+        # # TODO: assert for the situation that in_channels=1 but value different between channels
+        # # Load images
+        # self.original_image = cv2.imread(self.input_data[idx])[...,0:self.model_config.in_channels]
+        # # TODO: dynamic value pair
+        # self.original_label = convert_value(
+        #     image=cv2.imread(self.ground_truth[idx])[...,0:self.model_config.in_channels], value_pair={255: 1})
+
+        # # input_image, gt_image = preprocessing.resize_to_range(self.original_image, self.original_label,
+        # #     min_size=self.min_resize_value, max_size=self.max_resize_value, factor=self.scale_factor_step_size)
+        # # # Data preprocessing
+        # output_strides = self.model_config.output_strides
+        # input_image, gt_image = preprocessing.output_strides_align(self.original_image, output_strides, self.original_label)
+
+        # if self.dataset_config.is_data_augmentation:
+        #     preprocessor = preprocessing.DataPreprocessing(self.dataset_config['preprocess_config'])
+        #     input_image, gt_image = preprocessor(input_image, gt_image)
+            
+        # # Transform to Torch tensor
+        # input_image = self.transform(input_image)
+        # gt_image = self.transform(gt_image)
+        # return {'input': input_image, 'gt': gt_image}
+
+
+        # ++++++
         # TODO: assert for the situation that in_channels=1 but value different between channels
         # Load images
         self.original_image = cv2.imread(self.input_data[idx])[...,0:self.model_config.in_channels]
@@ -194,42 +219,33 @@ class ImageDataset(Dataset):
         self.original_label = convert_value(
             image=cv2.imread(self.ground_truth[idx])[...,0:self.model_config.in_channels], value_pair={255: 1})
 
-        # input_image, gt_image = preprocessing.resize_to_range(self.original_image, self.original_label,
-        #     min_size=self.min_resize_value, max_size=self.max_resize_value, factor=self.scale_factor_step_size)
-        # # Data preprocessing
-        output_strides = self.model_config.output_strides
-        input_image, gt_image = preprocessing.output_strides_align(self.original_image, output_strides, self.original_label)
+        input_image, gt_image = preprocessing.resize_to_range(self.original_image, self.original_label,
+            min_size=self.min_resize_value, max_size=self.max_resize_value, factor=self.scale_factor_step_size)
 
         if self.dataset_config.is_data_augmentation:
-            preprocessor = preprocessing.DataPreprocessing(self.dataset_config['preprocess_config'])
+            preprocessor = input_preprocess.DataPreprocessing(self.dataset_config['preprocess_config'])
             input_image, gt_image = preprocessor(input_image, gt_image)
-            
-        # # Pad image and label to have dimensions >= [crop_height, crop_width]
-        # image_shape = input_image.shape
-        # image_height = image_shape[0]
-        # image_width = image_shape[1]
 
-        # target_height = image_height + max(self.crop_size[0] - image_height, 0)
-        # target_width = image_width + max(self.crop_size[1] - image_width, 0)
+        # Pad image and label to have dimensions >= [crop_height, crop_width]
+        image_shape = input_image.shape
+        image_height = image_shape[0]
+        image_width = image_shape[1]
+
+        target_height = image_height + max(self.crop_size[0] - image_height, 0)
+        target_width = image_width + max(self.crop_size[1] - image_width, 0)
         
-        # input_image = preprocessing.pad_to_bounding_box(
-        #     input_image, 0, 0, target_height, target_width, pad_value=0)
-        # if gt_image is not None:
-        #     gt_image = preprocessing.pad_to_bounding_box(
-        #         gt_image, 0, 0, target_height, target_width, pad_value=0)
+        input_image = preprocessing.pad_to_bounding_box(
+            input_image, 0, 0, target_height, target_width, pad_value=0)
+        if gt_image is not None:
+            gt_image = preprocessing.pad_to_bounding_box(
+                gt_image, 0, 0, target_height, target_width, pad_value=0)
 
-        # if self.dataset_config.is_data_augmentation:
-        #     Hs, Ws = input_image.shape[:2]
-        #     Ws = np.random.randint(0, Ws - self.crop_size[1] + 1, 1)[0]
-        #     Hs = np.random.randint(0, Hs - self.crop_size[0] + 1, 1)[0]
-        #     input_image = input_image[Hs:Hs + self.crop_size[0], Ws:Ws + self.crop_size[0]]
-        #     if gt_image is not None:
-        #         gt_image = gt_image[Hs:Hs + self.crop_size[1], Ws:Ws + self.crop_size[1]]
+        if self.dataset_config.is_data_augmentation:
+            input_image, gt_image = preprocessing.random_crop(input_image, gt_image, self.crop_size)
+            input_image, gt_image = preprocessing.rand_flip(
+                input_image, gt_image, flip_prob=self.dataset_config.preprocess_config.flip_prob)
 
-        #     input_image, gt_image = preprocessing.rand_flip(
-        #         input_image, gt_image, flip_prob=self.dataset_config.preprocess_config.flip_prob)
-
-        # Standardize
+        # # Standardize
         # input_image = preprocessing.standardize(input_image)
         # if gt_image is not None:
         #     gt_image = preprocessing.standardize(gt_image)
@@ -238,6 +254,8 @@ class ImageDataset(Dataset):
         input_image = self.transform(input_image)
         gt_image = self.transform(gt_image)
         return {'input': input_image, 'gt': gt_image}
+        # -----
+
   
 
   
@@ -257,19 +275,56 @@ class ClassificationImageDataset(ImageDataset):
     def __getitem__(self, idx):
         # Load images
         # input_image = cv2.imread(self.input_data[idx])[...,0:1]
-        input_image = cv2.imread(self.input_data[idx])
-        gt = self.ground_truth[idx]
+        self.original_image = cv2.imread(self.input_data[idx])
+        self.original_label = self.ground_truth[idx]
+
+        input_image, _ = preprocessing.resize_to_range(self.original_image, label=None,
+            min_size=self.min_resize_value, max_size=self.max_resize_value, factor=self.scale_factor_step_size)
 
         # Data preprocessing
-        output_strides = self.model_config.output_strides
-        input_image, _ = preprocessing.output_strides_align(input_image, output_strides)
         if self.dataset_config.is_data_augmentation:
-            preprocessor = preprocessing.DataPreprocessing(self.dataset_config['preprocess_config'])
+            preprocessor = input_preprocess.DataPreprocessing(self.dataset_config['preprocess_config'])
             input_image, _ = preprocessor(input_image)
         
+        # Pad image and label to have dimensions >= [crop_height, crop_width]
+        image_shape = input_image.shape
+        image_height = image_shape[0]
+        image_width = image_shape[1]
+
+        target_height = image_height + max(self.crop_size[0] - image_height, 0)
+        target_width = image_width + max(self.crop_size[1] - image_width, 0)
+        
+        input_image = preprocessing.pad_to_bounding_box(
+            input_image, 0, 0, target_height, target_width, pad_value=0)
+
+        if self.dataset_config.is_data_augmentation:
+            input_image, _ = preprocessing.random_crop(input_image, label=None, crop_size=self.crop_size)
+            input_image, _ = preprocessing.rand_flip(
+                input_image, label=None, flip_prob=self.dataset_config.preprocess_config.flip_prob)
+
         # Standardize
         # input_image = preprocessing.standardize(input_image)
 
         # Transform to Torch tensor
         input_image = self.transform(input_image)
-        return {'input': input_image, 'gt': gt}
+        return {'input': input_image, 'gt': self.original_label}
+
+    # def __getitem__(self, idx):
+        # # Load images
+        # # input_image = cv2.imread(self.input_data[idx])[...,0:1]
+        # input_image = cv2.imread(self.input_data[idx])
+        # gt = self.ground_truth[idx]
+
+        # # Data preprocessing
+        # output_strides = self.model_config.output_strides
+        # input_image, _ = preprocessing.output_strides_align(input_image, output_strides)
+        # if self.dataset_config.is_data_augmentation:
+        #     preprocessor = input_preprocess.DataPreprocessing(self.dataset_config['preprocess_config'])
+        #     input_image, _ = preprocessor(input_image)
+        
+        # # Standardize
+        # # input_image = preprocessing.standardize(input_image)
+
+        # # Transform to Torch tensor
+        # input_image = self.transform(input_image)
+        # return {'input': input_image, 'gt': gt}

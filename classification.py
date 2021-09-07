@@ -55,10 +55,10 @@ def main():
     # Dataloader
     train_dataset = ClassificationImageDataset(config, mode='train')
     train_dataloader = DataLoader(
-        train_dataset, batch_size=config.dataset.train.batch_size, shuffle=config.dataset.train.shuffle)
+        train_dataset, batch_size=config.dataset.train.batch_size, shuffle=config.dataset.train.shuffle, pin_memory=True)
     test_dataset = ClassificationImageDataset(config, mode='test')
     test_dataloader = DataLoader(
-        test_dataset, batch_size=config.dataset.val.batch_size, shuffle=config.dataset.val.shuffle)
+        test_dataset, batch_size=config.dataset.val.batch_size, shuffle=config.dataset.val.shuffle, pin_memory=True)
 
 
     # Start training

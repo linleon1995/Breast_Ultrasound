@@ -147,7 +147,7 @@ dataset:
     - 0.7
     - 0.3
   train:
-    batch_size: 6
+    batch_size: 4
     shuffle: True
     dir_key: ""
     file_key: mask
@@ -161,7 +161,7 @@ dataset:
       RandCrop: True
       RandScale: True
       # ScaleToSize: False
-      ScaleLimitSize: True
+      # ScaleLimitSize: False
       RandRotate: True
       GaussianBlur: False
       padding_value: 0.0
@@ -176,6 +176,7 @@ dataset:
       flip_prob: 0.5
       min_angle: -45
       max_angle: 45
+      show_preprocess: False
   val:
     batch_size: 1
     shuffle: False
@@ -191,7 +192,7 @@ dataset:
       RandCrop: True
       RandScale: True
       # ScaleToSize: False
-      ScaleLimitSize: True
+      # ScaleLimitSize: True
       RandRotate: True
       GaussianBlur: False
       padding_value: 0.0
@@ -206,6 +207,7 @@ dataset:
       flip_prob: 0.5
       min_angle: -45
       max_angle: 45
+      show_preprocess: False
 
 # use a fixed random seed to guarantee that when you run the code twice you will get the same outcome
 manual_seed: 0
@@ -234,7 +236,7 @@ model:
 train:
   loss: CrossEntropy
   optimizer: Adam
-  epoch: 500
-  learning_rate: 0.0001
+  epoch: 100
+  learning_rate: 0.00001
   project_path: C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound
-  checkpoint_saving_steps: 100
+  checkpoint_saving_steps: 50

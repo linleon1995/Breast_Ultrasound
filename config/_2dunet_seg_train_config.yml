@@ -54,6 +54,37 @@ dataset:
       # PadToSquare: False
       HorizontalFlip: True
       RandCrop: True
+      RandScale: True
+      # ScaleToSize: False
+      # ScaleLimitSize: True
+      RandRotate: True
+      GaussianBlur: True
+      padding_value: 0.0
+      flip_prob: 0.5
+      min_scale_factor: 1.0
+      max_scale_factor: 1.25
+      step_size: 0.125
+      min_resize_value: 384
+      max_resize_value: 512
+      scale_factor_step_size: 32
+      resize_method: Bilinear
+      flip_prob: 0.5
+      min_angle: -45
+      max_angle: 45
+      show_preprocess: False
+  val:
+    shuffle: False
+    batch_size: 1
+    dir_key: ""
+    file_key: mask
+    is_data_augmentation: False
+    preprocess_config:
+      crop_size: 
+        - 512
+        - 512
+      # PadToSquare: False
+      HorizontalFlip: True
+      RandCrop: True
       RandScale: False
       # ScaleToSize: False
       # ScaleLimitSize: True
@@ -71,35 +102,6 @@ dataset:
       flip_prob: 0.5
       min_angle: -45
       max_angle: 45
-  val:
-    shuffle: False
-    batch_size: 1
-    dir_key: ""
-    file_key: mask
-    is_data_augmentation: False
-    preprocess_config:
-      crop_size: 
-        - 513
-        - 513
-      # PadToSquare: False
-      HorizontalFlip: True
-      RandCrop: True
-      RandScale: False
-      # ScaleToSize: False
-      # ScaleLimitSize: True
-      RandRotate: True
-      GaussianBlur: True
-      padding_value: 0.0
-      flip_prob: 0.5
-      min_scale_factor: 1.0
-      max_scale_factor: 1.25
-      step_size: 0.125
-      min_resize_value: 385
-      max_resize_value: 513
-      scale_factor_step_size: 32
-      resize_method: Bilinear
-      flip_prob: 0.5
-      min_angle: -45
-      max_angle: 45
+      show_preprocess: False
   
 

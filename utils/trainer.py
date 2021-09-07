@@ -520,112 +520,26 @@ class BaseTrainer():
         self.device = device
         self.loss = losses.get_loss(config.train.loss, config)
     
-    def fit(self):
-        checkpoint_path = train_utils.create_training_path(os.path.join(self.config.train.project_path, 'models'))
-        training_samples = len(self.train_dataloader.dataset)
-        step_loss, total_train_loss= [], []
-        training_steps = int(training_samples/self.config.train.batch_size)
-        if training_samples%self.config.train.batch_size != 0:
-            training_steps += 1
-        experiment = [s for s in checkpoint_path.split('\\') if 'run' in s][0]
-        times = 5
-        level = training_steps//times
-        length = 0
-        temp = level
-        while (temp):
-            temp = temp // 10
-            length += 1
-        level = round(level / 10**(length-1)) * 10**(length-1)
+    def train(self):
+        pass
 
-        print("Start Training!!")
-        print("Training epoch: {} Batch size: {} Shuffling Data: {} Training Samples: {}".
-                format(self.config.train.epoch, self.config.train.batch_size, self.config.dataset.shuffle, training_samples))
-        print(60*"-")
-        train_utils._logging(os.path.join(checkpoint_path, 'logging.txt'), self.config, access_mode='w+')
-        # TODO: train_logging
-        self.config['experiment'] = experiment
-        train_utils.train_logging(os.path.join(self.config.train.project_path, 'models', 'train_logging.txt'), self.config)
-        
-        # Start training
-        for epoch in range(1, self.config.train.epoch+1):
-            total_loss = 0.0
-            for i, data in enumerate(self.train_dataloader):
-                self.net.train()
-                inputs, labels = data['input'], data['gt']
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
-                self.optimizer.zero_grad()
-                outputs = self.net(inputs)
-                loss = self.loss(outputs, labels)
-                loss.backward()
-                self.optimizer.step()
-                total_loss += loss.item()
-                step_loss.append(loss)
-                
-                if i%level == 0:
-                    print('Step {}  Step loss {}'.format(i, loss))
-            total_train_loss.append(total_loss/training_steps)
-            # TODO: check Epoch loss correctness
-            print(f'**Epoch {epoch}/{self.config.train.epoch}  Training Loss {total_train_loss[-1]}')
-            with torch.no_grad():
-                self.net.eval()
-                self.validate()
+    def valid(self):
+        pass
+    
+    def fit_once(self):
+        pass
 
-    def validate(self):
-        test_loss, test_acc = 0.0, []
-        total_test_acc, total_test_loss  = [], []
-        testing_steps = len(self.valid_dataloader.dataset)
-        max_acc = -1
-        eval_tool = metrics.SegmentationMetrics(self.config.model.out_channels, ['accuracy'])
-        for _, data in enumerate(self.valid_dataloader):
-            inputs, labels = data['input'], data['gt']
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
-            outputs = self.net(inputs)
-            test_loss += self.loss(outputs, labels)
-            prediction = torch.argmax(outputs, dim=1)
+    def forward_pass(self):
+        pass
 
-            labels = labels.cpu().detach().numpy()
-            prediction = prediction.cpu().detach().numpy()
-            evals = eval_tool(labels, prediction)
-        avg_test_acc = metrics.accuracy(
-            np.sum(eval_tool.total_tp), np.sum(eval_tool.total_fp), np.sum(eval_tool.total_fn))
-        total_test_acc.append(avg_test_acc)
-        avg_test_loss = test_loss / testing_steps
-        total_test_loss.append(avg_test_loss)
-        print("**Testing Loss:{:.3f}".format(avg_test_loss))
+    def stop_condition(self):
+        pass
 
-        
-        checkpoint = {
-                "net": self.net.state_dict(),
-                'optimizer':self.optimizer.state_dict(),
-                "epoch": epoch
-            }
-            
-        if epoch%self.config.train.checkpoint_saving_steps == 0:
-            print("Saving model with testing accuracy {:.3f} in epoch {} ".format(avg_test_loss, epoch))
-            checkpoint_name = 'ckpt_best_{:04d}.pth'.format(epoch)
-            torch.save(checkpoint, os.path.join(checkpoint_path, checkpoint_name))
+    def init_model(self):
+        pass
 
-        if avg_test_acc > max_acc:
-            max_acc = avg_test_acc
-            print("Saving best model with testing accuracy {:.3f}".format(max_acc))
-            checkpoint_name = 'ckpt_best.pth'
-            torch.save(checkpoint, os.path.join(checkpoint_path, checkpoint_name))
+    def save_model(self):
+        pass
 
-    if epoch%10 == 0:
-        _, ax = plt.subplots()
-        ax.plot(list(range(1,len(total_train_loss)+1)), total_train_loss, 'C1', label='train')
-        ax.plot(list(range(1,len(total_train_loss)+1)), total_test_loss, 'C2', label='test')
-        ax.set_xlabel('epoch')
-        ax.set_ylabel('loss')
-        ax.set_title('Losses')
-        ax.legend()
-        plt.savefig(os.path.join(checkpoint_path, f'{experiment}_loss.png'))
-
-        _, ax = plt.subplots()
-        ax.plot(list(range(1,len(total_test_acc)+1)), total_test_acc, 'C1', label='testing accuracy')
-        ax.set_xlabel('epoch')
-        ax.set_ylabel('accuracy')
-        ax.set_title('Testing Accuracy')
-        ax.legend()
-        plt.savefig(os.path.join(checkpoint_path, f'{experiment}_accuracy.png'))
-    print(60*"=")    
+    def logging(self):
+        pass

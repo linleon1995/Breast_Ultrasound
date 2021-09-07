@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from dataset.dataloader import ImageDataset
-from dataset.preprocessing import DataPreprocessing
+from dataset.input_preprocess import DataPreprocessing
 from utils import train_utils
 from utils import metrics
 from utils import configuration

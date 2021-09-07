@@ -3,7 +3,7 @@ manual_seed: 0
 # model configuration
 model:
   # model class, e.g. UNet3D, ResidualUNet3D
-  name: efficientnet_b0
+  name: efficientnet_b4
   # number of input channels to the model
   in_channels: 3
   # number of output channels
@@ -201,12 +201,13 @@ dataset:
         - 512
       min_angle: -45
       max_angle: 45
+      show_preprocess: False
   val:
     batch_size: 1
     shuffle: False
     dir_key: ""
     file_key: mask
-    is_data_augmentation: False
+    is_data_augmentation: True
     preprocess_config:
       crop_size: 
         - 512
@@ -216,9 +217,9 @@ dataset:
       RandCrop: True
       RandScale: False
       # ScaleToSize: False
-      # ScaleLimitSize: True
+      ScaleLimitSize: True
       RandRotate: True
-      GaussianBlur: True
+      GaussianBlur: False
       padding_value: 0.0
       flip_prob: 0.5
       min_scale_factor: 1.0
@@ -231,13 +232,14 @@ dataset:
       flip_prob: 0.5
       min_angle: -45
       max_angle: 45
+      show_preprocess: False
 
 eval:
   show_segmentation_result: False # TODO: change name
   save_segmentation_result: False
   save_prediciton_only: False
   running_mode: test
-  restore_checkpoint_path: C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\models\run_074
+  restore_checkpoint_path: C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\models\run_081
   checkpoint_name: ckpt_best.pth
   eval_dir_key:
   

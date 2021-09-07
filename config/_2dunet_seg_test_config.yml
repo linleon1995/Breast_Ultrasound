@@ -61,11 +61,12 @@ dataset:
       flip_prob: 0.5
       min_angle: -45
       max_angle: 45
+      show_preprocess: False
   val:
     shuffle: False
     dir_key: "benign"
     file_key: mask
-    is_data_augmentation: False
+    is_data_augmentation: True
     preprocess_config:
       crop_size: 
         - 512
@@ -73,11 +74,11 @@ dataset:
       # PadToSquare: False
       HorizontalFlip: True
       RandCrop: True
-      RandScale: False
+      RandScale: True
       # ScaleToSize: False
-      # ScaleLimitSize: True
+      ScaleLimitSize: True
       RandRotate: True
-      GaussianBlur: True
+      GaussianBlur: False
       padding_value: 0.0
       flip_prob: 0.5
       min_scale_factor: 1.0
@@ -90,6 +91,7 @@ dataset:
       flip_prob: 0.5
       min_angle: -45
       max_angle: 45
+      show_preprocess: True
   
 
 eval:

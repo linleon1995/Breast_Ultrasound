@@ -207,13 +207,13 @@ dataset:
     shuffle: False
     dir_key: ""
     file_key: mask
-    is_data_augmentation: True
+    is_data_augmentation: False
     preprocess_config:
       crop_size: 
         - 512
         - 512
       # PadToSquare: False
-      HorizontalFlip: True
+      RandFlip: True
       RandCrop: True
       RandScale: False
       # ScaleToSize: False
@@ -239,7 +239,7 @@ eval:
   save_segmentation_result: False
   save_prediciton_only: False
   running_mode: test
-  restore_checkpoint_path: C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\models\run_081
+  restore_checkpoint_path: C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\models\run_082
   checkpoint_name: ckpt_best.pth
   eval_dir_key:
   

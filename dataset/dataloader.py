@@ -30,6 +30,7 @@ def generate_filename_list(path, file_key, dir_key='', only_filename=False):
                     input_paths.append(fullpath)
     return input_paths, gt_paths
 
+
 def data_analysis(path, dir_key, file_key):
     """check image and mask value range"""
     input_paths, gt_paths = generate_filename_list(path, file_key, dir_key)
@@ -71,70 +72,70 @@ def data_preprocessing(path, file_key, dir_key):
             cv2.imwrite(filename, mask)
 
 
-def generate_augment_samples(path, aug_config, dataset_config, mode):
-    dataset = ImageDataset(dataset_config, mode)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    crop_size = aug_config.crop_size
-    ratio = 0.75
-    for idx, data in enumerate(dataloader):
-        print(f'Sample {idx}')
-        inputs, labels = data['input'].numpy(), data['gt'].numpy()
-        # inputs, labels = inputs.to(device), labels.to(device)
-        height, width = inputs.shape[2:]
-        input_list = [inputs[0,0]]
-        label_list = [labels[0,0]]
+# def generate_augment_samples(path, aug_config, dataset_config, mode):
+#     dataset = ImageDataset(dataset_config, mode)
+#     dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#     crop_size = aug_config.crop_size
+#     ratio = 0.75
+#     for idx, data in enumerate(dataloader):
+#         print(f'Sample {idx}')
+#         inputs, labels = data['input'].numpy(), data['gt'].numpy()
+#         # inputs, labels = inputs.to(device), labels.to(device)
+#         height, width = inputs.shape[2:]
+#         input_list = [inputs[0,0]]
+#         label_list = [labels[0,0]]
 
-        # flipping
-        if aug_config.flip:
-            flipped_image, flipped_label = [], []
-            for image, label in zip(input_list, label_list):
-                flip_image, flip_label = preprocessing.rand_flip(image, label, 1.0)
-                flipped_image.append(flip_image)
-                flipped_label.append(flip_label)
-            input_list.extend(flipped_image)    
-            label_list.extend(flipped_label)    
+#         # flipping
+#         if aug_config.flip:
+#             flipped_image, flipped_label = [], []
+#             for image, label in zip(input_list, label_list):
+#                 flip_image, flip_label = preprocessing.random_flip(image, label, 1.0)
+#                 flipped_image.append(flip_image)
+#                 flipped_label.append(flip_label)
+#             input_list.extend(flipped_image)    
+#             label_list.extend(flipped_label)    
 
-        # scaling
-        # cropping
-        if aug_config.crop:
-            cropped_image, cropped_label = [], []
-            for image, label in zip(input_list, label_list):
-                def crop5(image):
-                    crop_dict = {}
-                    crop_dict['left_top'] = image[:crop_size, :crop_size]
+#         # scaling
+#         # cropping
+#         if aug_config.crop:
+#             cropped_image, cropped_label = [], []
+#             for image, label in zip(input_list, label_list):
+#                 def crop5(image):
+#                     crop_dict = {}
+#                     crop_dict['left_top'] = image[:crop_size, :crop_size]
 
-                    if crop_size/width < ratio and crop_size/height < ratio:
-                        crop_dict['right_bot'] = image[(height-crop_size):, (width-crop_size):]
+#                     if crop_size/width < ratio and crop_size/height < ratio:
+#                         crop_dict['right_bot'] = image[(height-crop_size):, (width-crop_size):]
 
-                        offset_height = (height - crop_size) // 2
-                        offset_width = (width - crop_size) // 2
-                        crop_dict['center'] = image[offset_height:height-offset_height, offset_width:width-offset_width]
+#                         offset_height = (height - crop_size) // 2
+#                         offset_width = (width - crop_size) // 2
+#                         crop_dict['center'] = image[offset_height:height-offset_height, offset_width:width-offset_width]
 
-                    if crop_size/width < ratio:
-                        crop_dict['right_top'] = image[:crop_size, (width-crop_size):]
+#                     if crop_size/width < ratio:
+#                         crop_dict['right_top'] = image[:crop_size, (width-crop_size):]
 
-                    if crop_size/height < ratio:
-                        crop_dict['left_bot'] = image[(height-crop_size):, :crop_size]
-                    crop_dict = list(crop_dict.values())
-                    return crop_dict
+#                     if crop_size/height < ratio:
+#                         crop_dict['left_bot'] = image[(height-crop_size):, :crop_size]
+#                     crop_dict = list(crop_dict.values())
+#                     return crop_dict
 
-                cropped_image.extend(crop5(image))
-                cropped_label.extend(crop5(label))
+#                 cropped_image.extend(crop5(image))
+#                 cropped_label.extend(crop5(label))
                     
 
-                # cropped_image.append(image[:height, :width])
-                # cropped_image.append(image[:height, :width])
-                # cropped_label.append(label[:height, :width])
-            input_list = cropped_image
-            label_list = cropped_label
-        j = 1
-        for image, label in zip(input_list, label_list):
-            cv2.imwrite(os.path.join(path, f'{dataset_config.dir_key}_{idx:04d}_aug{j}.png'), image*255)
-            cv2.imwrite(os.path.join(path, f'{dataset_config.dir_key}_{idx:04d}_mask_aug{j}.png'), label*255)
-            j += 1
-        # plt.imshow(label_list[-1], 'gray')
-        # plt.show()
+#                 # cropped_image.append(image[:height, :width])
+#                 # cropped_image.append(image[:height, :width])
+#                 # cropped_label.append(label[:height, :width])
+#             input_list = cropped_image
+#             label_list = cropped_label
+#         j = 1
+#         for image, label in zip(input_list, label_list):
+#             cv2.imwrite(os.path.join(path, f'{dataset_config.dir_key}_{idx:04d}_aug{j}.png'), image*255)
+#             cv2.imwrite(os.path.join(path, f'{dataset_config.dir_key}_{idx:04d}_mask_aug{j}.png'), label*255)
+#             j += 1
+#         # plt.imshow(label_list[-1], 'gray')
+#         # plt.show()
 
 
 def minmax_normalization(image):
@@ -165,17 +166,19 @@ class ImageDataset(Dataset):
         dataset_config = config.dataset.train if mode == 'train' else config.dataset.val
         model_config = config.model
         
-        data_split = config.dataset['data_split']
-        assert (isinstance(data_split, list) or isinstance(data_split, tuple))
-        assert data_split[0] + data_split[1] == 1
-        self.min_resize_value = dataset_config.preprocess_config.min_resize_value
-        self.max_resize_value = dataset_config.preprocess_config.max_resize_value
-        self.scale_factor_step_size = dataset_config.preprocess_config.scale_factor_step_size
+        # data_split = config.dataset['data_split']
+        # assert (isinstance(data_split, list) or isinstance(data_split, tuple))
+        # assert data_split[0] + data_split[1] == 1
+        self.preprocess_config = dataset_config.preprocess_config
+        self.is_data_augmentation = dataset_config.is_data_augmentation
+        self.min_resize_value = self.preprocess_config.min_resize_value
+        self.max_resize_value = self.preprocess_config.max_resize_value
+        self.scale_factor_step_size = self.preprocess_config.scale_factor_step_size
+        self.crop_size = self.preprocess_config.crop_size
         self.model_config = model_config
         self.mode = mode
-        self.dataset_config = dataset_config
-        self.crop_size = self.dataset_config.preprocess_config.crop_size
         self.transform = transforms.Compose([transforms.ToTensor()])
+
         data_path = os.path.join(config.dataset.index_path, f'{mode}.txt')
         self.input_data = dataset_utils.load_content_from_txt(data_path)
         self.input_data.sort()
@@ -222,7 +225,7 @@ class ImageDataset(Dataset):
         input_image, gt_image = preprocessing.resize_to_range(self.original_image, self.original_label,
             min_size=self.min_resize_value, max_size=self.max_resize_value, factor=self.scale_factor_step_size)
 
-        if self.dataset_config.is_data_augmentation:
+        if self.is_data_augmentation:
             preprocessor = input_preprocess.DataPreprocessing(self.dataset_config['preprocess_config'])
             input_image, gt_image = preprocessor(input_image, gt_image)
 
@@ -240,10 +243,10 @@ class ImageDataset(Dataset):
             gt_image = preprocessing.pad_to_bounding_box(
                 gt_image, 0, 0, target_height, target_width, pad_value=0)
 
-        if self.dataset_config.is_data_augmentation:
+        if self.is_data_augmentation:
             input_image, gt_image = preprocessing.random_crop(input_image, gt_image, self.crop_size)
-            input_image, gt_image = preprocessing.rand_flip(
-                input_image, gt_image, flip_prob=self.dataset_config.preprocess_config.flip_prob)
+            input_image, gt_image = preprocessing.random_flip(input_image, gt_image, 
+                flip_prob=self.preprocess_config.flip_prob, flip_mode=self.preprocess_config.flip_mode)
 
         # # Standardize
         # input_image = preprocessing.standardize(input_image)
@@ -282,8 +285,8 @@ class ClassificationImageDataset(ImageDataset):
             min_size=self.min_resize_value, max_size=self.max_resize_value, factor=self.scale_factor_step_size)
 
         # Data preprocessing
-        if self.dataset_config.is_data_augmentation:
-            preprocessor = input_preprocess.DataPreprocessing(self.dataset_config['preprocess_config'])
+        if self.is_data_augmentation:
+            preprocessor = input_preprocess.DataPreprocessing(self.preprocess_config)
             input_image, _ = preprocessor(input_image)
         
         # Pad image and label to have dimensions >= [crop_height, crop_width]
@@ -297,10 +300,10 @@ class ClassificationImageDataset(ImageDataset):
         input_image = preprocessing.pad_to_bounding_box(
             input_image, 0, 0, target_height, target_width, pad_value=0)
 
-        if self.dataset_config.is_data_augmentation:
+        if self.is_data_augmentation:
             input_image, _ = preprocessing.random_crop(input_image, label=None, crop_size=self.crop_size)
-            input_image, _ = preprocessing.rand_flip(
-                input_image, label=None, flip_prob=self.dataset_config.preprocess_config.flip_prob)
+            input_image, _ = preprocessing.random_flip(input_image, label=None, 
+                flip_prob=self.preprocess_config.flip_prob, flip_mode=self.preprocess_config.flip_mode)
 
         # Standardize
         # input_image = preprocessing.standardize(input_image)

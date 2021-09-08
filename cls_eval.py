@@ -11,7 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 # from model import ImageClassifier
 from core.image_calssification import img_classifier
 from dataset.dataloader import ClassificationImageDataset
-from dataset.preprocessing import DataPreprocessing
+from dataset.input_preprocess import DataPreprocessing
 from utils import train_utils
 from utils import metrics
 from utils import configuration

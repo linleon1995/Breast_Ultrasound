@@ -2,12 +2,14 @@ import cv2
 import numpy as np
 from dataset import preprocessing
 scale_to_limit_size = preprocessing.scale_to_limit_size
-rand_flip = preprocessing.rand_flip
-rand_scale = preprocessing.rand_scale
-rand_rotate = preprocessing.rand_rotate
+random_flip = preprocessing.random_flip
+random_scale = preprocessing.random_scale
+random_rotate = preprocessing.random_rotate
 gaussian_blur = preprocessing.gaussian_blur
 random_crop = preprocessing.random_crop
 show_data = preprocessing.show_data
+random_gamma = preprocessing.random_gamma
+random_gaussian = preprocessing.random_gaussian
 SHOW_PREPROCESSING = True
 
 
@@ -19,7 +21,7 @@ SHOW_PREPROCESSING = True
 # TODO: rectangle resize?
 class DataPreprocessing():
     def __init__(self, preprocess_config):
-        self.RandFlip = preprocess_config['HorizontalFlip']
+        # self.RandFlip = preprocess_config['RandFlip']
         self.RandCrop = preprocess_config['RandCrop']
         self.RandScale = preprocess_config['RandScale']
         # self.PadToSquare = preprocess_config['PadToSquare']
@@ -27,11 +29,14 @@ class DataPreprocessing():
         # self.ScaleLimitSize = preprocess_config['ScaleLimitSize']
         self.RandRotate = preprocess_config['RandRotate']
         self.GaussianBlur = preprocess_config['GaussianBlur']
+        self.RandGamma = preprocess_config['RandGamma']
+        self.RandGaussian = preprocess_config['RandGaussian']
 
         # self.padding_height = preprocess_config['padding_height']
         # self.padding_width = preprocess_config['padding_width']
         self.padding_value = preprocess_config['padding_value']
-        self.flip_prob = preprocess_config['flip_prob']
+        # self.flip_prob = preprocess_config['flip_prob']
+        # self.flip_mode = preprocess_config['flip_mode']
         self.min_scale_factor = preprocess_config['min_scale_factor']
         self.max_scale_factor = preprocess_config['max_scale_factor']
         self.step_size = preprocess_config['step_size']
@@ -42,6 +47,12 @@ class DataPreprocessing():
         self.min_angle = preprocess_config['min_angle']
         self.max_angle = preprocess_config['max_angle']
         self.show_preprocess = preprocess_config['show_preprocess']
+        self.min_gamma_factor = preprocess_config['min_gamma_factor']
+        self.max_gamma_factor = preprocess_config['max_gamma_factor']
+        self.gamma_factor_step_size = preprocess_config['gamma_factor_step_size']
+        self.min_std_factor = preprocess_config['min_std_factor']
+        self.max_std_factor = preprocess_config['max_std_factor']
+        self.std_step_size = preprocess_config['std_step_size']
 
     # def __call__(self, image, label=None):
     #     self.original_image = image
@@ -145,11 +156,20 @@ class DataPreprocessing():
         #         show_data_information(image, label, 'sacle to size')
 
         if self.RandScale:
-            image, label = rand_scale(
-                image, label, self.min_scale_factor, self.max_scale_factor, self.step_size, self.resize_method)
+            image, label = random_scale(image, label, 
+                self.min_scale_factor, self.max_scale_factor, self.step_size, self.resize_method)
 
         if self.RandRotate:
-            image, label = rand_rotate(image, label, min_angle=self.min_angle, max_angle=self.max_angle)
+            image, label = random_rotate(image, label, 
+                min_angle=self.min_angle, max_angle=self.max_angle)
+
+        if self.RandGamma:
+            image, label = random_gamma(image, label, 
+                self.min_gamma_factor, self.max_gamma_factor, self.gamma_factor_step_size)
+
+        if self.RandGaussian:
+            image, label = random_gaussian(image, label,
+                self.min_std_factor, self.max_std_factor, self.std_step_size)
 
         if self.GaussianBlur:
             image, label = gaussian_blur(image, label)

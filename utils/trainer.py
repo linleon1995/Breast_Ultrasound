@@ -511,14 +511,15 @@ class UNetTrainer:
 
 
 class BaseTrainer():
-    def __init__(self, config, train_dataloader, valid_dataloader, net, logger, device):
+    def __init__(self, config, train_dataloader, valid_dataloader, net, logger, 
+                 device, optimizer, train_loss, valid_loss, lr_scheduler):
         self.config = config
         self.net = net
-        self.optimizer = train_utils.get_optimizer(config.train.optimizer, self.net, config)
+        # self.optimizer = train_utils.get_optimizer(config.train.optimizer, self.net, config)
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
         self.device = device
-        self.loss = losses.get_loss(config.train.loss, config)
+        # self.loss = losses.get_loss(config.train.loss, config)
     
     def train(self):
         pass

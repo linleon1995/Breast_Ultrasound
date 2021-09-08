@@ -7,9 +7,13 @@ SHOW_PREPROCESSING = False
 
 def show_data(*args, **kargs):
     # TODO: Dynamic for single input function
-    image, label = args[:2]
+    pair = []
+    pair.append(kargs['image']) if 'image' in kargs else pair.append(args[0])
+    pair.append(kargs['label']) if 'label' in kargs else pair.append(args[1])
+    image, label = pair
     print(f'    Image (value) max={np.max(image)} min={np.min(image)}  (shape) {image.shape}')
-    print(f'    Label (value) max={np.max(image)} min={np.min(image)}  (shape) {image.shape}')
+    if label is not None:
+        print(f'    Label (value) max={np.max(image)} min={np.min(image)}  (shape) {image.shape}')
     _, (ax1, ax2) = plt.subplots(1,2)
     ax1.imshow(np.uint8(image), 'gray')
     if label is not None:
@@ -29,6 +33,7 @@ def show_data_information(show_preprocessing, op_name):
 
 
 # TODO: Understand the code
+# TODO: decorator
 @show_data_information(SHOW_PREPROCESSING, op_name='resize to range')
 def resize_to_range(image,
                     label=None,
@@ -191,36 +196,20 @@ def standardize(m, mean=None, std=None, eps=1e-10, channelwise=False, *kwargs):
     return num
 
 
-# class Standardize:
-#     """
-#     Apply Z-score normalization to a given input tensor, i.e. re-scaling the values to be 0-mean and 1-std.
-#     """
-
-#     def __init__(self, eps=1e-10, mean=None, std=None, channelwise=False, **kwargs):
-#         if mean is not None or std is not None:
-#             assert mean is not None and std is not None
-#         self.mean = mean
-#         self.std = std
-#         self.eps = eps
-#         self.channelwise = channelwise
-
-#     def __call__(self, m):
-#         if self.mean is not None:
-#             mean, std = self.mean, self.std
-#         else:
-#             if self.channelwise:
-#                 # normalize per-channel
-#                 axes = list(range(m.ndim))
-#                 # average across channels
-#                 axes = tuple(axes[1:])
-#                 mean = np.mean(m, axis=axes, keepdims=True)
-#                 std = np.std(m, axis=axes, keepdims=True)
-#             else:
-#                 mean = np.mean(m)
-#                 std = np.std(m)
-
-#         return (m - mean) / np.clip(std, a_min=self.eps, a_max=None)
-
+@show_data_information(SHOW_PREPROCESSING, op_name='gamma')
+def random_gamma(image, label=None, min_gamma_factor=0.9, max_gamma_factor=1.1, 
+                 gamma_factor_step_size=0.01):
+    def gamma_transform(image, gamma):
+        if image.dtype == np.uint8: image = np.float32(image/255)
+        image = np.power(image, gamma)
+        image = np.uint8(image*255)
+        return image
+    gamma = get_random_scale(min_gamma_factor, max_gamma_factor, gamma_factor_step_size)
+    image = gamma_transform(image, gamma)
+    if label is not None:
+        label = gamma_transform(label, gamma)
+    return image, label
+    
 
 def output_strides_align(input_image, output_strides, gt_image=None):
     H = input_image.shape[0]
@@ -257,6 +246,24 @@ def get_random_scale(min_scale_factor, max_scale_factor, step_size):
     # When step_size != 0, we randomly select one discrete value from [min, max].
     num_steps = int((max_scale_factor - min_scale_factor) / step_size + 1)
     scale_factors = list(np.linspace(min_scale_factor, max_scale_factor, num_steps))
+    return scale_factors[np.random.randint(0, len(scale_factors))]
+
+
+def get_random_uniform_value(min_value, max_value, step_size):
+    """Refer to DeepLab get_random_scale"""
+    if min_value > max_value:
+        raise ValueError('Unexpected value of min_scale_factor.')
+
+    if min_value == max_value:
+        return float(min_value)
+
+    # When step_size = 0, we sample the value uniformly from [min, max).
+    if step_size == 0:
+        return np.random.uniform(min_value, max_value)
+
+    # When step_size != 0, we randomly select one discrete value from [min, max].
+    num_steps = int((max_value - min_value) / step_size + 1)
+    scale_factors = list(np.linspace(min_value, max_value, num_steps))
     return scale_factors[np.random.randint(0, len(scale_factors))]
 
 
@@ -310,19 +317,31 @@ def scale_to_limit_size(image, label, crop_size, resize_method=cv2.INTER_LINEAR)
 
                     
 @show_data_information(SHOW_PREPROCESSING, op_name='rotate')
-def rand_rotate(image, label=None, min_angle=0, max_angle=0, center=None, scale=1.0, borderValue=0):
+def random_rotate(image, label=None, min_angle=0, max_angle=0, center=None, scale=1.0, borderValue=0):
     (h, w) = image.shape[:2]
     if center is None:
         center = (w / 2, h / 2)
-    assert max_angle > min_angle
-    if min_angle == max_angle:
-        angle = min_angle
-    else:
-        angle = np.random.uniform(min_angle, max_angle)
+    # assert max_angle > min_angle
+    # if min_angle == max_angle:
+    #     angle = min_angle
+    # else:
+    #     angle = np.random.uniform(min_angle, max_angle)
+    
+    angle = get_random_uniform_value(min_angle, max_angle, 1)
     M = cv2.getRotationMatrix2D(center, angle, scale)
     image = cv2.warpAffine(image, M, (w, h), borderValue)
     if label is not None:
         label = cv2.warpAffine(label, M, (w, h), borderValue)
+    return (image, label)
+
+
+@show_data_information(SHOW_PREPROCESSING, op_name='gaussian_blur')
+def random_gaussian(image, label=None, 
+    min_std=0.0, max_std=1.5, std_step_size=0.1, kernel_size=(3,3)):
+    std_value = get_random_uniform_value(min_std, max_std, std_step_size)
+    image = cv2.GaussianBlur(image, ksize=kernel_size, sigmaX=std_value, sigmaY=std_value)
+    if label is not None:
+        label = cv2.GaussianBlur(label, ksize=kernel_size, sigmaX=std_value, sigmaY=std_value)
     return (image, label)
 
 
@@ -335,12 +354,20 @@ def gaussian_blur(image, label=None, kernel_size=(7,7)):
 
     
 @show_data_information(SHOW_PREPROCESSING, op_name='flip')
-def rand_flip(image, label=None, flip_prob=0.5):
+def random_flip(image, label=None, flip_prob=0.5, flip_mode='H'):
+    if flip_mode == 'H':
+        flip_mode_code = 1
+    elif flip_mode == 'V':
+        flip_mode_code = 0
+    elif flip_mode == 'HV' or flip_mode == 'VH':
+        flip_mode_code = -1
+    else:
+        raise ValueError('Unknown flipping mode.')   
     randnum = np.random.uniform(0.0, 1.0)
     if flip_prob > randnum:
-        image = cv2.flip(image, 1)
+        image = cv2.flip(image, flip_mode_code)
         if label is not None:
-            label = cv2.flip(label, 1)
+            label = cv2.flip(label, flip_mode_code)
     return image, label
 
 
@@ -364,7 +391,7 @@ def random_crop(image, label, crop_size):
 
 
 @show_data_information(SHOW_PREPROCESSING, op_name='scale')
-def rand_scale(image, label, min_scale_factor, max_scale_factor, step_size, resize_method=cv2.INTER_LINEAR):
+def random_scale(image, label, min_scale_factor, max_scale_factor, step_size, resize_method=cv2.INTER_LINEAR):
     scale = get_random_scale(min_scale_factor, max_scale_factor, step_size)
     Hs, Ws = image.shape[:2]
     Hs, Ws = int(scale*Hs), int(scale*Ws)

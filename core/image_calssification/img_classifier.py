@@ -19,6 +19,8 @@ class ImageClassifier(nn.Module):
             self.encoder = creat_torchvision_backbone(in_channels, backbone, pretrained, final_flatten=True)
         elif backbone in ['efficientnet_b0', 'efficientnet_b4']:
             self.encoder = creat_timm_backbone(in_channels, backbone, pretrained, final_flatten=True)
+        else:
+            raise ValueError(f"Unknown encoder: {backbone}")
         if in_channels != 3 and pretrained:
             logging.info('Reinitialized first layer')
 

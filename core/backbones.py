@@ -83,6 +83,7 @@ class TimmEfficientNetBuilder(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+
 def creat_torchvision_backbone(in_channels, backbone, pretrained, final_flatten=True):
     if 'resnet' in backbone:
         return PytorchResnetBuilder(in_channels, backbone, pretrained, final_flatten)

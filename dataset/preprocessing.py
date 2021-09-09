@@ -267,44 +267,6 @@ def get_random_uniform_value(min_value, max_value, step_size):
     return scale_factors[np.random.randint(0, len(scale_factors))]
 
 
-# def show_data_information2():
-#     def trace(func):
-#         @functools.wraps(func)
-#         def mywrapper(*args, **kwargs):
-#             image, label = func(*args, **kwargs)
-#             # method = kwargs['method']
-#             # method = 'a'
-#             # if method is not None:
-#             #     print(f'method: {method}')
-#             # print(f'    Image (value) max={np.max(image)} min={np.min(image)}  (shape) {image.shape}')
-#             # print(f'    Label (value) max={np.max(image)} min={np.min(image)}  (shape) {image.shape}')
-#             # _, (ax1, ax2) = plt.subplots(1,2)
-#             # ax1.imshow(np.uint8(image), 'gray')
-#             # if label is not None:
-#             #     ax2.imshow(np.uint8(label), 'gray')
-#             # plt.show()
-#             print('a')
-#             return image, label
-#         return mywrapper
-#     return trace
-
-
-# def show_data_information(image, label=None, method=None):
-#     if method is not None:
-#         print(f'method: {method}')
-#     print(f'    Image (value) max={np.max(image)} min={np.min(image)}  (shape) {image.shape}')
-#     print(f'    Label (value) max={np.max(image)} min={np.min(image)}  (shape) {image.shape}')
-#     _, (ax1, ax2) = plt.subplots(1,2)
-#     ax1.imshow(np.uint8(image), 'gray')
-#     if label is not None:
-#         ax2.imshow(np.uint8(label), 'gray')
-#     plt.show()
-
-
-
-# def rand_crop(image, label=None, size=None):
-#     pass
-
 def scale_to_limit_size(image, label, crop_size, resize_method=cv2.INTER_LINEAR):
     H, W = image.shape[:2]
     scale_ratio = (crop_size[0]+1) / min(H, W)
@@ -352,22 +314,26 @@ def gaussian_blur(image, label=None, kernel_size=(7,7)):
         label = cv2.GaussianBlur(label, kernel_size, 0)
     return (image, label)
 
-    
+
 @show_data_information(SHOW_PREPROCESSING, op_name='flip')
 def random_flip(image, label=None, flip_prob=0.5, flip_mode='H'):
-    if flip_mode == 'H':
-        flip_mode_code = 1
-    elif flip_mode == 'V':
-        flip_mode_code = 0
-    elif flip_mode == 'HV' or flip_mode == 'VH':
-        flip_mode_code = -1
-    else:
-        raise ValueError('Unknown flipping mode.')   
-    randnum = np.random.uniform(0.0, 1.0)
-    if flip_prob > randnum:
-        image = cv2.flip(image, flip_mode_code)
-        if label is not None:
-            label = cv2.flip(label, flip_mode_code)
+    def rand_flip_op(image, label, flip_mode_code):
+        randnum = np.random.uniform(0.0, 1.0)
+        if flip_prob > randnum:
+            image = cv2.flip(image, flip_mode_code)
+            if label is not None:
+                label = cv2.flip(label, flip_mode_code)
+        return image, label
+    # Horizontal flipping
+    if flip_mode in ['H', 'HV', 'VH']:
+        image, label = rand_flip_op(image, label, flip_mode_code=1)
+    # Vertical flipping
+    if flip_mode in ['V', 'HV', 'VH']:
+        image, label = rand_flip_op(image, label, flip_mode_code=0)
+    # Flip in vertical and horizontal
+    if flip_mode == '_HV':
+        image, label = rand_flip_op(image, label, flip_mode_code=-1)
+
     return image, label
 
 

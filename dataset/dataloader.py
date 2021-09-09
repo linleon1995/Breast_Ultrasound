@@ -155,6 +155,46 @@ def convert_value(image, value_pair=None):
 # def convert_value(image):
 #     return np.int32(image//255)
 
+# class AbstractDastaset(Dataset):
+#     def __init__(self, config, mode):
+#         assert (mode=='train' or mode=='test'), f'Unknown executing mode [{mode}].'
+#         self.dataset_config = config.dataset.train if mode == 'train' else config.dataset.val
+#         self.model_config = config.model
+#         self.preprocess_config = self.dataset_config.preprocess_config
+#         self.is_data_augmentation = self.dataset_config.is_data_augmentation
+#         self.mode = mode
+#         self.transform = transforms.Compose([transforms.ToTensor()])
+#         self.load_func = None
+
+#         self.check_dataset_split(config.dataset.data_split)
+#         self.input_data_files, self.ground_truth_files = self.get_dataset_path(
+#             dataset_name, dataset_split=config.dataset.data_split, mode=self.mode)
+
+#         data_path = os.path.join(config.dataset.index_path, f'{mode}.txt')
+#         self.input_data = dataset_utils.load_content_from_txt(data_path)
+#         self.input_data.sort()
+#         # TODO: gt not exist condition
+#         self.ground_truth = [f.replace('.png', '_mask.png') for f in self.input_data] 
+#         # self.ground_truth = [f.split('.png')[0]+'_mask.png' for f in self.input_data] 
+#         print(f"{self.mode}  Samples: {len(self.input_data)}")
+
+#     def __len__(self):
+#         return len(self.input_data_files)
+
+#     def __getitem__(self, idx):
+#         input_data = self.load_func(self.input_data_files[idx])
+#         input_data = self.transform(input_data)
+#         ground_truth = self.load_func(self.ground_truth_files[idx])
+#         ground_truth = self.transform(ground_truth)
+#         return {'input': input_data, 'gt': ground_truth}
+
+#     def check_dataset_split(self, data_split):
+#         assert (isinstance(data_split, list) or isinstance(data_split, tuple))
+#         assert data_split[0] + data_split[1] == 1
+
+#     def get_dataset_path(self, dataset_name, dataset_split, mode):
+#         data_path = os.path.join(config.dataset.index_path, f'{mode}.txt')
+
 
 # TODO: Write in inherit form
 # TODO: inference mode (no gt exist)
@@ -163,19 +203,15 @@ class ImageDataset(Dataset):
     def __init__(self, config, mode):
         # TODO: dynamic
         assert (mode=='train' or mode=='test'), f'Unknown executing mode [{mode}].'
-        dataset_config = config.dataset.train if mode == 'train' else config.dataset.val
-        model_config = config.model
+        self.dataset_config = config.dataset.train if mode == 'train' else config.dataset.val
+        self.model_config = config.model
         
-        # data_split = config.dataset['data_split']
-        # assert (isinstance(data_split, list) or isinstance(data_split, tuple))
-        # assert data_split[0] + data_split[1] == 1
-        self.preprocess_config = dataset_config.preprocess_config
-        self.is_data_augmentation = dataset_config.is_data_augmentation
+        self.preprocess_config = self.dataset_config.preprocess_config
+        self.is_data_augmentation = self.dataset_config.is_data_augmentation
         self.min_resize_value = self.preprocess_config.min_resize_value
         self.max_resize_value = self.preprocess_config.max_resize_value
         self.scale_factor_step_size = self.preprocess_config.scale_factor_step_size
         self.crop_size = self.preprocess_config.crop_size
-        self.model_config = model_config
         self.mode = mode
         self.transform = transforms.Compose([transforms.ToTensor()])
 
@@ -260,8 +296,17 @@ class ImageDataset(Dataset):
         # -----
 
   
+# class AudioDataset():
+#     def __init__(self, config, mode):
+        
 
-  
+#     def __len__(self):
+#         return len(self.input_data)
+
+#     def __getitem__(self, idx):
+#         pass
+
+
 class ClassificationImageDataset(ImageDataset):
     def __init__(self, config, mode):
         super().__init__(config, mode)

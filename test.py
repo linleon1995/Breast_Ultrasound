@@ -2,6 +2,7 @@ from numpy.lib.arraysetops import isin
 from numpy.lib.type_check import _imag_dispatcher
 from sklearn import metrics
 import torch
+import torchaudio
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
@@ -9,13 +10,14 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import argparse
+import librosa.display
 # from model import UNet_2d
 # from model import ImageClassifier
 from core.unet import unet_2d
 from core.image_calssification import img_classifier
 from torch.utils.data import Dataset, DataLoader
 from dataset.dataloader import ImageDataset, ClassificationImageDataset, data_analysis
-from dataset.preprocessing import DataPreprocessing
+from dataset.input_preprocess import DataPreprocessing
 import numpy as np
 # from cfg import dataset_config
 from dataset import dataloader
@@ -24,6 +26,7 @@ import cv2
 import os
 from utils import configuration
 from core import layers
+
 UNet_2d = unet_2d.UNet_2d
 ImageClassifier = img_classifier.ImageClassifier
 
@@ -253,10 +256,12 @@ def get_range_of_mask(segmentation, key_value, gap=10):
 def BU_detection_label_to_segmentation_label():
     data_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\YOLO\Release\yolo_main\v4\results'
     data_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\YOLO\Release\yolo_mark\data\template\label_loosely'
+    data_path = rf'C:\Users\test\Desktop\Software\SVN\Algorithm\YOLO\Release\yolo_mark\data\template\BU'
     save_path = rf'C:\Users\test\Desktop\Leon\Datasets\Kaggle_Breast_Ultraound\yolo_BU_detection'
     img_format = 'png'
     os.chdir(data_path)
     data_list = [f for f in os.listdir(data_path) if 'txt' in f]
+    data_list = ['benign (315).txt']
     for f in data_list:
         print(f)
         # Get the image size and create background
@@ -286,7 +291,7 @@ def BU_detection_label_to_segmentation_label():
                 _, ax = plt.subplots()
                 ax.imshow(img)
                 start = (int(w*(bbox_x-bbox_w/2)), int(h*(bbox_y-bbox_h/2)))
-                rect = patches.Rectangle(start, w*bbox_w, h*bbox_h, linewidth=2, edgecolor='r', facecolor='none')
+                rect = patches.Rectangle(start, w*bbox_w, h*bbox_h, linewidth=2, edgecolor='g', facecolor='none')
                 # rect = patches.Rectangle((1,1), 100, 100, linewidth=2, edgecolor='r', facecolor='none')
                 ax.add_patch(rect)
                 plt.show()
@@ -532,30 +537,22 @@ def contrast_enhance_main():
     plt.show()
     #_____END_____#
 
-# def path_test():
-    # datapath = "C:\\Users\\test\\Desktop\\Leon\\Projects\\Breast_Ultrasound\\archive\\Dataset_BUSI_with_GT"
-    # data_analysis(datapath)
-    # dataset_test()
 
-    # 
-    # path = 'C:\\Users\\test\\Desktop\\Software\\SVN\\Algorithm\\deeplabv3+\\data\\myDataset\\masks_raw\\paintlabel_masks\\0013.PNG'
-    # path2 = 'C:\\Users\\test\\Desktop\\Software\\SVN\\Algorithm\\deeplabv3+\\data\\myDataset\\masks\\0013.PNG'
-    # # path2 = rf'C:\Users\test\Desktop\Leon\Projects\Breast_Ultrasound\models\run_017'
-    # # print(path2)
-    # input_image = cv2.imread(path2)
-    # plt.imshow(255*input_image, cmap='gray')
-    # plt.axis('off')
-    # plt.show()
-    # 
-    # print(os.getcwd())
-    # cwd = os.getcwd()
-    # print(cwd)
-    # print(os.path.join("config", "2dunet_512_config.yaml"))
-    # import yaml
-    # with open(os.path.join(cwd, "config", "2dunet_512_config.yml"), "r") as stream:
-    #     data = yaml.load(stream)
-    # print(data)
+def torchaudio_augmentation():
+    filename = rf'C:\Users\test\Desktop\Leon\Datasets\Snoring_Detection\Snoring Dataset\0\0_0.wav'
+    print(filename)
+    waveform, sample_rate = torchaudio.load(filename)
+    spectrogram = torchaudio.transforms.MelSpectrogram()
+    spec = spectrogram(waveform)
+    fbank = torchaudio.compliance.kaldi.fbank(waveform, htk_compat=True, sample_frequency=sample_rate, use_energy=False,
+                                              window_type='hanning', num_mel_bins=128, dither=0.0, frame_shift=10)
+    plt.imshow(fbank)
+    plt.show()
     
+    # x , sr = librosa.load(filename)
+    # plt.figure(figsize=(14, 5))
+    # librosa.display.waveplot(x, sr)
+
 if __name__ == "__main__":
     # test_new_eval_main()
     # augmentation_test()
@@ -571,11 +568,12 @@ if __name__ == "__main__":
     # convert_DAGM_mask_main()
     # BU_cls_dataloader_main()
     # BU_save_name_main()
-    # BU_detection_label_to_segmentation_label()
+    BU_detection_label_to_segmentation_label()
     # test_model_main()
     # BU_image_read_and_show()
     # dsc_for_deeplab_main()
     # Timm_main()
     # contrast_enhance_main()
-    convert_value()
+    # convert_value()
+    # torchaudio_augmentation()
     pass

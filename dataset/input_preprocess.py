@@ -28,7 +28,7 @@ class DataPreprocessing():
         # self.ScaleToSize = preprocess_config['ScaleToSize']
         # self.ScaleLimitSize = preprocess_config['ScaleLimitSize']
         self.RandRotate = preprocess_config['RandRotate']
-        self.GaussianBlur = preprocess_config['GaussianBlur']
+        # self.GaussianBlur = preprocess_config['GaussianBlur']
         self.RandGamma = preprocess_config['RandGamma']
         self.RandGaussian = preprocess_config['RandGaussian']
 
@@ -171,8 +171,8 @@ class DataPreprocessing():
             image, label = random_gaussian(image, label,
                 self.min_std_factor, self.max_std_factor, self.std_step_size)
 
-        if self.GaussianBlur:
-            image, label = gaussian_blur(image, label)
+        # if self.GaussianBlur:
+        #     image, label = gaussian_blur(image, label)
 
         # if self.RandCrop:
         #     Ws = np.random.randint(0, Ws - self.crop_size[1] + 1, 1)[0]
